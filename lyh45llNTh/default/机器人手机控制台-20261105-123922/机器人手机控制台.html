@@ -1,0 +1,1853 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0b1220">
+<title>智能物品取放机器人 · 手机控制台</title>
+<!-- SECTION: style -->
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;max-width:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  background:#0b1220;color:#e6edf7;font-size:16px;line-height:1.5;
+  -webkit-text-size-adjust:100%;overscroll-behavior:none;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+button,input,select{font-family:inherit;font-size:16px;color:inherit}
+:root{
+  --bg:#0b1220;--card:#151f33;--card2:#1c2942;--line:#26344f;
+  --acc:#3b82f6;--ok:#22c55e;--warn:#f59e0b;--err:#ef4444;--dim:#8fa3c4;
+}
+/* SECTION: layout */
+.app{max-width:720px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+header{
+  position:sticky;top:0;z-index:30;background:rgba(11,18,32,.96);
+  border-bottom:1px solid var(--line);padding:10px 12px;
+  padding-top:calc(10px + env(safe-area-inset-top));
+}
+.htop{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.title{font-size:15px;font-weight:700;letter-spacing:.3px;min-width:0;flex:1 1 auto}
+.title small{display:block;font-size:11px;font-weight:400;color:var(--dim);letter-spacing:0}
+.badge{
+  display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:4px 9px;
+  border-radius:999px;background:var(--card2);border:1px solid var(--line);white-space:nowrap;
+}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--dim);flex:0 0 auto}
+.dot.on{background:var(--ok);box-shadow:0 0 0 3px rgba(34,197,94,.18)}
+.dot.err{background:var(--err);box-shadow:0 0 0 3px rgba(239,68,68,.18)}
+.dot.sim{background:var(--warn);box-shadow:0 0 0 3px rgba(245,158,11,.18)}
+.stats{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.stat{
+  flex:1 1 90px;min-width:0;background:var(--card);border:1px solid var(--line);
+  border-radius:9px;padding:6px 8px;
+}
+.stat b{display:block;font-size:15px;font-weight:700;line-height:1.25;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat span{font-size:11px;color:var(--dim)}
+.batt{height:3px;border-radius:2px;background:#2b3a58;margin-top:4px;overflow:hidden}
+.batt i{display:block;height:100%;background:var(--ok);width:0%;transition:width .4s}
+/* SECTION: tabs */
+nav{display:flex;gap:4px;padding:8px 12px;background:var(--bg);
+  position:sticky;top:0;z-index:20;overflow-x:auto;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+nav button{
+  flex:1 1 auto;min-width:64px;padding:9px 6px;border:1px solid var(--line);
+  background:var(--card);border-radius:9px;font-size:13px;color:var(--dim);cursor:pointer;
+  white-space:nowrap;
+}
+nav button.sel{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
+main{flex:1 1 auto;padding:0 12px 16px;min-width:0}
+.panel{display:none}
+.panel.sel{display:block}
+/* SECTION: card */
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:12px;margin-bottom:12px;min-width:0}
+.card h3{margin:0 0 10px;font-size:14px;font-weight:700;display:flex;
+  align-items:center;gap:6px;flex-wrap:wrap}
+.card h3 em{font-style:normal;font-size:11px;color:var(--dim);font-weight:400}
+.hint{font-size:12px;color:var(--dim);margin:0 0 10px}
+/* SECTION: video */
+.vid{position:relative;width:100%;aspect-ratio:16/9;background:#05080f;
+  border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+.vid img{width:100%;height:100%;object-fit:contain;display:block}
+.vid .ph{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:6px;color:var(--dim);font-size:12px;padding:12px;text-align:center}
+.vid canvas{position:absolute;inset:0;width:100%;height:100%}
+.vid .tag{position:absolute;top:6px;left:6px;font-size:11px;background:rgba(0,0,0,.62);
+  padding:3px 7px;border-radius:6px;color:#cfe0ff;pointer-events:none}
+.vid .rec{position:absolute;top:6px;right:6px;font-size:11px;background:rgba(239,68,68,.85);
+  padding:3px 7px;border-radius:6px;display:none}
+/* SECTION: joystick */
+.ctrlrow{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.joywrap{flex:1 1 200px;min-width:0;display:flex;flex-direction:column;align-items:center;gap:8px}
+.joy{
+  width:min(230px,62vw);aspect-ratio:1/1;border-radius:50%;
+  background:radial-gradient(circle at 50% 40%,#1d2b46,#111a2c);
+  border:1px solid var(--line);position:relative;touch-action:none;cursor:grab;
+  box-shadow:inset 0 2px 12px rgba(0,0,0,.5);
+}
+.joy.locked{opacity:.42;cursor:not-allowed}
+.joy .ring{position:absolute;inset:16%;border-radius:50%;border:1px dashed #2f4062}
+.joy .ax{position:absolute;background:#243352}
+.joy .ax.h{left:8%;right:8%;top:50%;height:1px}
+.joy .ax.v{top:8%;bottom:8%;left:50%;width:1px}
+.knob{
+  position:absolute;width:36%;aspect-ratio:1/1;border-radius:50%;left:32%;top:32%;
+  background:radial-gradient(circle at 35% 30%,#60a5fa,#2563eb);
+  border:1px solid #7cb3ff;box-shadow:0 4px 14px rgba(37,99,235,.45);
+  touch-action:none;transition:transform .05s linear;
+}
+.joyout{font-size:12px;color:var(--dim);text-align:center;font-variant-numeric:tabular-nums}
+.side{flex:0 1 150px;min-width:132px;display:flex;flex-direction:column;gap:8px}
+/* SECTION: buttons */
+.btn{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  min-height:46px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);
+  background:var(--card2);cursor:pointer;font-size:14px;font-weight:600;width:100%;
+  transition:transform .06s,background .15s;text-align:center;
+}
+.btn:active{transform:scale(.97)}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.btn.ok{background:#14532d;border-color:#1f7a45;color:#bbf7d0}
+.btn.warn{background:#4a3410;border-color:#8a6318;color:#fde68a}
+.btn.err{background:#5b1a1a;border-color:#a03030;color:#fecaca}
+.btn.sm{min-height:40px;font-size:13px;padding:8px 10px}
+.btn.on{background:#1d4ed8;border-color:#3b82f6;color:#fff}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px}
+/* SECTION: estop */
+.estop{
+  width:100%;min-height:66px;border-radius:14px;border:2px solid #b91c1c;
+  background:linear-gradient(180deg,#dc2626,#991b1b);color:#fff;
+  font-size:19px;font-weight:800;letter-spacing:2px;cursor:pointer;
+  box-shadow:0 6px 18px rgba(220,38,38,.35);
+}
+.estop:active{transform:scale(.98)}
+.estop.armed{animation:pulse 1.1s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 6px 18px rgba(220,38,38,.35)}
+  50%{box-shadow:0 6px 26px rgba(239,68,68,.75)}}
+.lockbar{display:none;margin-bottom:12px;padding:10px 12px;border-radius:10px;
+  background:#3a1414;border:1px solid #7f1d1d;font-size:13px;
+  align-items:center;gap:8px;flex-wrap:wrap}
+.lockbar.show{display:flex}
+/* SECTION: form */
+label{display:block;font-size:12px;color:var(--dim);margin-bottom:4px}
+input,select,textarea{
+  width:100%;min-width:0;padding:10px 11px;border-radius:9px;
+  border:1px solid var(--line);background:#0e1728;color:#e6edf7;
+  font-size:16px;outline:none;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--acc)}
+.frow{margin-bottom:10px;min-width:0}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+/* SECTION: list */
+.slot{
+  display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;
+  border:1px solid var(--line);background:#0e1728;margin-bottom:8px;min-width:0;
+}
+.slot.sel{border-color:var(--acc);background:#132340}
+.slot .ic{width:34px;height:34px;flex:0 0 34px;border-radius:8px;background:var(--card2);
+  display:flex;align-items:center;justify-content:center;font-size:16px}
+.slot .tx{flex:1 1 auto;min-width:0}
+.slot .tx b{display:block;font-size:14px;font-weight:600}
+.slot .tx span{font-size:11px;color:var(--dim);display:block;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slot button{flex:0 0 auto;width:44px;min-height:44px;border-radius:9px;
+  border:1px solid var(--line);background:var(--card2);cursor:pointer;font-size:14px}
+/* SECTION: progress */
+.prog{margin-bottom:12px}
+.stepline{display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap}
+.stp{flex:1 1 60px;min-width:56px;text-align:center;font-size:11px;color:var(--dim);
+  padding:5px 2px;border-radius:7px;background:#0e1728;border:1px solid var(--line)}
+.stp.act{background:#132340;border-color:var(--acc);color:#bfdbfe;font-weight:600}
+.stp.done{background:#10281a;border-color:#1f7a45;color:#bbf7d0}
+.pbar{height:6px;border-radius:3px;background:#22304c;overflow:hidden}
+.pbar i{display:block;height:100%;width:0%;background:var(--acc);transition:width .3s}
+.pmsg{font-size:12px;color:var(--dim);margin-top:6px;min-height:18px}
+/* SECTION: map */
+.mapwrap{position:relative;width:100%;aspect-ratio:1/1;background:#05080f;
+  border-radius:10px;overflow:hidden;border:1px solid var(--line);touch-action:none}
+.mapwrap canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.mapbtns{position:absolute;right:8px;bottom:8px;display:flex;flex-direction:column;gap:6px}
+.mapbtns button{width:40px;height:40px;border-radius:9px;border:1px solid var(--line);
+  background:rgba(21,31,51,.9);color:#e6edf7;font-size:17px;cursor:pointer}
+.mapleg{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--dim);margin-top:8px}
+.mapleg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+/* SECTION: log */
+.logbox{background:#05080f;border:1px solid var(--line);border-radius:9px;
+  padding:8px;height:190px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.logbox div{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;
+  line-height:1.65;word-break:break-all;padding:1px 0}
+.logbox .t{color:#5f7396}
+.logbox .tx{color:#93c5fd}
+.logbox .rx{color:#86efac}
+.logbox .er{color:#fca5a5}
+.logbox .wn{color:#fcd34d}
+/* SECTION: misc */
+.kv{display:flex;justify-content:space-between;gap:10px;padding:7px 0;
+  border-bottom:1px solid #1c2740;font-size:13px}
+.kv:last-child{border-bottom:0}
+.kv span{color:var(--dim);flex:0 0 auto}
+.kv b{font-weight:600;text-align:right;min-width:0;word-break:break-all;
+  font-variant-numeric:tabular-nums}
+.sw{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:9px 0;border-bottom:1px solid #1c2740}
+.sw:last-child{border-bottom:0}
+.sw .l{min-width:0}
+.sw .l b{display:block;font-size:13px;font-weight:600}
+.sw .l span{font-size:11px;color:var(--dim)}
+.tgl{flex:0 0 auto;width:48px;height:28px;border-radius:999px;background:#2b3a58;
+  border:1px solid var(--line);position:relative;cursor:pointer}
+.tgl i{position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;
+  background:#8fa3c4;transition:.18s}
+.tgl.on{background:#1d4ed8;border-color:#3b82f6}
+.tgl.on i{left:22px;background:#fff}
+.notice{padding:9px 11px;border-radius:9px;font-size:12px;margin-bottom:10px;
+  background:#132340;border:1px solid #2b4d86;color:#bfdbfe}
+.notice.w{background:#2a2008;border-color:#7a5c14;color:#fde68a}
+footer{padding:10px 12px 18px;font-size:11px;color:var(--dim);text-align:center;
+  border-top:1px solid var(--line)}
+@media (max-width:400px){
+  .side{flex:1 1 100%}
+  .joy{width:min(210px,74vw)}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<!-- SECTION: header -->
+<header>
+  <div class="htop">
+    <div class="title">智能物品取放机器人<small id="subTitle">手机控制台 · Mobile Teleop</small></div>
+    <div class="badge"><span class="dot" id="connDot"></span><span id="connTxt">未连接</span></div>
+  </div>
+  <div class="stats">
+    <div class="stat"><b id="stBatt">--</b><span>电量</span>
+      <div class="batt"><i id="battBar"></i></div></div>
+    <div class="stat"><b id="stPos">-- , --</b><span>位置 X/Y (m)</span></div>
+    <div class="stat"><b id="stYaw">--</b><span>航向角 (°)</span></div>
+    <div class="stat"><b id="stGrip">--</b><span>夹爪开度</span></div>
+  </div>
+</header>
+<!-- SECTION: nav -->
+<nav id="tabBar">
+  <button data-tab="drive" class="sel">操控</button>
+  <button data-tab="task">取放任务</button>
+  <button data-tab="map">地图导航</button>
+  <button data-tab="set">连接设置</button>
+</nav>
+<main>
+<!-- SECTION: lockbar -->
+<div class="lockbar" id="lockBar">
+  <span>⛔</span><span style="flex:1 1 120px;min-width:0">急停已触发，操控区已锁定</span>
+  <button class="btn sm warn" id="btnUnlock" style="width:auto;flex:0 0 auto;padding:8px 14px">解除锁定</button>
+</div>
+
+<!-- SECTION: panel drive -->
+<div class="panel sel" id="p-drive">
+  <div class="card">
+    <h3>现场画面 <em id="vidTagTxt">未配置视频流</em></h3>
+    <div class="vid" id="vidBox">
+      <img id="vidImg" alt="" style="display:none">
+      <canvas id="vidSim" style="display:none"></canvas>
+      <div class="ph" id="vidPh">
+        <div style="font-size:24px">📷</div>
+        <div>请在「连接设置」中填入视频流地址</div>
+        <div class="mono">支持 web_video_server 的 MJPEG 流</div>
+      </div>
+      <div class="tag mono" id="vidTag" style="display:none"></div>
+      <div class="rec mono" id="vidRec">● LIVE</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>底盘遥控 <em>发布 /cmd_vel · 20Hz</em></h3>
+    <p class="hint">拖动摇杆控制移动底盘（麦轮全向）。松手自动归零。电脑端可用 W A S D 或方向键。</p>
+    <div class="ctrlrow">
+      <div class="joywrap">
+        <div class="joy" id="joy">
+          <div class="ring"></div><div class="ax h"></div><div class="ax v"></div>
+          <div class="knob" id="knob"></div>
+        </div>
+        <div class="joyout mono" id="joyOut">线速度 0.00 m/s · 角速度 0.00 rad/s</div>
+      </div>
+      <div class="side">
+        <button class="btn sm" id="btnMode">速度模式：低速</button>
+        <div class="grid2" style="gap:6px">
+          <button class="btn sm" id="btnLiftU">臂 ▲</button>
+          <button class="btn sm" id="btnLiftD">臂 ▼</button>
+        </div>
+        <div class="grid2" style="gap:6px">
+          <button class="btn sm" id="btnGripC">夹紧</button>
+          <button class="btn sm" id="btnGripO">松开</button>
+        </div>
+        <button class="btn sm" id="btnHorn">声光提示</button>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:10px">
+      <button class="btn ok sm" id="btnHome">返回充电桩</button>
+      <button class="btn sm" id="btnStopArm">停止机械臂</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <button class="estop" id="btnEstop">紧 急 停 止</button>
+    <p class="hint" style="margin:10px 0 0;text-align:center">
+      持续发布零速指令 + 急停话题，锁定全部操控入口
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>实时状态 <em id="stateSrc">模拟数据</em></h3>
+    <div class="kv"><span>连接方式</span><b id="kvConn">模拟模式</b></div>
+    <div class="kv"><span>底盘速度</span><b id="kvVel">0.00 / 0.00 m/s</b></div>
+    <div class="kv"><span>夹爪开度</span><b id="kvGrip">--</b></div>
+    <div class="kv"><span>机械臂高度</span><b id="kvLift">--</b></div>
+    <div class="kv"><span>末端夹持力</span><b id="kvForce">--</b></div>
+    <div class="kv"><span>已运行时长</span><b id="kvUp">00:00:00</b></div>
+    <div class="kv"><span>任务计数</span><b id="kvTask">0 完成 / 0 失败</b></div>
+  </div>
+</div>
+
+<!-- SECTION: panel task -->
+<div class="panel" id="p-task">
+  <div class="card">
+    <h3>任务执行 <em id="taskStateTxt">空闲</em></h3>
+    <div class="prog">
+      <div class="stepline" id="stepLine"></div>
+      <div class="pbar"><i id="pFill"></i></div>
+      <div class="pmsg" id="pMsg">尚未下发任务。选择取放点后点击「下发取放任务」。</div>
+    </div>
+    <div class="grid2">
+      <button class="btn pri" id="btnStartTask">下发取放任务</button>
+      <button class="btn warn" id="btnPauseTask" disabled>暂停 / 继续</button>
+      <button class="btn err sm" id="btnCancelTask" disabled>取消任务</button>
+      <button class="btn sm" id="btnRetryTask" disabled>重试上一步</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>① 取货点 <em>物品所在位置</em></h3>
+    <div id="pickList"></div>
+  </div>
+
+  <div class="card">
+    <h3>② 放置点 <em>目标存放位置</em></h3>
+    <div id="dropList"></div>
+  </div>
+
+  <div class="card">
+    <h3>③ 物品与抓取参数</h3>
+    <div class="frow">
+      <label for="selItem">物品类型</label>
+      <select id="selItem"></select>
+    </div>
+    <div class="fgrid">
+      <div class="frow"><label for="inForce">夹持力上限 (N)</label>
+        <input id="inForce" type="number" inputmode="decimal" min="0.5" max="60" step="0.5" value="8"></div>
+      <div class="frow"><label for="inSpeed">机械臂速度 (%)</label>
+        <input id="inSpeed" type="number" inputmode="numeric" min="5" max="100" step="5" value="45"></div>
+    </div>
+    <div class="frow"><label for="selGripper">末端执行器</label>
+      <select id="selGripper">
+        <option value="adaptive">电动自适应夹爪</option>
+        <option value="vacuum">真空吸盘</option>
+        <option value="soft">软体气动手</option>
+      </select>
+    </div>
+    <div class="sw">
+      <div class="l"><b>视觉复检</b><span>抓取前二次识别，置信度不足自动重拍</span></div>
+      <div class="tgl on" id="tglVision"><i></i></div>
+    </div>
+    <div class="sw">
+      <div class="l"><b>力控保护</b><span>夹持力超限自动松开并回退</span></div>
+      <div class="tgl on" id="tglForce"><i></i></div>
+    </div>
+    <div class="sw">
+      <div class="l"><b>动态避障</b><span>检测到行人时暂停并重规划轨迹</span></div>
+      <div class="tgl on" id="tglAvoid"><i></i></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>任务队列 <em id="qCount">0 条</em></h3>
+    <p class="hint">可一次排入多条取放任务，机器人按序执行。</p>
+    <div id="queue"></div>
+    <div class="grid2">
+      <button class="btn sm" id="btnEnqueue">加入队列</button>
+      <button class="btn sm" id="btnClearQ">清空队列</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>历史记录</h3>
+    <div id="history"></div>
+  </div>
+</div>
+
+<!-- SECTION: panel map -->
+<div class="panel" id="p-map">
+  <div class="card">
+    <h3>栅格地图 <em id="mapSrcTxt">模拟地图 10×10 m</em></h3>
+    <p class="hint">单指拖动平移，点按地图选择导航目标点。电脑端可用滚轮缩放。</p>
+    <div class="mapwrap" id="mapWrap">
+      <canvas id="mapCv"></canvas>
+      <div class="mapbtns">
+        <button id="mapZin" aria-label="放大">＋</button>
+        <button id="mapZout" aria-label="缩小">－</button>
+        <button id="mapRecenter" aria-label="回到机器人">⌖</button>
+      </div>
+    </div>
+    <div class="mapleg">
+      <span><i style="background:#3b82f6"></i>机器人</span>
+      <span><i style="background:#f59e0b"></i>导航目标</span>
+      <span><i style="background:#22c55e"></i>取货点</span>
+      <span><i style="background:#a855f7"></i>放置点</span>
+      <span><i style="background:#334155"></i>障碍物</span>
+    </div>
+  </div>
+  <div class="card">
+    <h3>导航控制</h3>
+    <div class="kv"><span>目标点</span><b id="kvGoal">未设置</b></div>
+    <div class="kv"><span>直线距离</span><b id="kvDist">--</b></div>
+    <div class="kv"><span>导航状态</span><b id="kvNav">空闲</b></div>
+    <div class="grid2" style="margin-top:10px">
+      <button class="btn pri" id="btnGo" disabled>前往目标点</button>
+      <button class="btn sm" id="btnCancelNav" disabled>取消导航</button>
+    </div>
+    <div class="frow" style="margin-top:10px">
+      <label for="selWaypoint">常用点位（可直接下发导航）</label>
+      <select id="selWaypoint"></select>
+    </div>
+    <div class="grid2">
+      <button class="btn sm" id="btnGoWp">导航到该点</button>
+      <button class="btn sm" id="btnRescan">重扫环境建图</button>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION: panel set -->
+<div class="panel" id="p-set">
+  <div class="notice" id="simNotice">
+    当前为<b>模拟模式</b>：页面内置虚拟机器人，可完整演示取放流程，不会向任何设备发送指令。
+    填入下方 rosbridge 地址并点击「连接机器人」后，指令将通过 WebSocket 真实下发。
+  </div>
+
+  <div class="card">
+    <h3>rosbridge 连接 <em>ROS2 桥接服务</em></h3>
+    <div class="frow"><label for="inWs">WebSocket 地址</label>
+      <input id="inWs" class="mono" placeholder="ws://192.168.1.50:9090" autocomplete="off" spellcheck="false"></div>
+    <div class="grid2">
+      <button class="btn pri" id="btnConn">连接机器人</button>
+      <button class="btn" id="btnDisc" disabled>断开连接</button>
+    </div>
+    <p class="hint" style="margin-top:10px">
+      机器人侧需运行 <span class="mono">rosbridge_suite</span>：<br>
+      <span class="mono">ros2 launch rosbridge_server rosbridge_websocket_launch.xml</span><br>
+      手机与机器人须在同一局域网；若页面用 https 打开，浏览器会拦截 ws 明文连接，建议用 http 访问本页。
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>视频流</h3>
+    <div class="frow"><label for="inVid">MJPEG / 流地址（留空则显示模拟画面）</label>
+      <input id="inVid" class="mono" placeholder="http://192.168.1.50:8080/stream?topic=/camera/color/image_raw" autocomplete="off" spellcheck="false"></div>
+    <div class="sw">
+      <div class="l"><b>无视频流时显示模拟画面</b><span>Canvas 绘制的第一人称示意场景</span></div>
+      <div class="tgl on" id="tglSimVid"><i></i></div>
+    </div>
+    <p class="hint" style="margin-top:8px">
+      机器人侧可运行 <span class="mono">web_video_server</span> 输出 MJPEG 流：<br>
+      <span class="mono">ros2 run web_video_server web_video_server</span>
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>话题映射 <em>按你的 ROS2 工程实际名称修改</em></h3>
+    <div class="fgrid">
+      <div class="frow"><label for="tVel">速度指令（发布）</label>
+        <input id="tVel" class="mono" value="/cmd_vel"></div>
+      <div class="frow"><label for="tGrip">夹爪指令（发布）</label>
+        <input id="tGrip" class="mono" value="/gripper_cmd"></div>
+      <div class="frow"><label for="tLift">升降指令（发布）</label>
+        <input id="tLift" class="mono" value="/arm_lift"></div>
+      <div class="frow"><label for="tTask">取放任务（发布 JSON）</label>
+        <input id="tTask" class="mono" value="/task_cmd"></div>
+      <div class="frow"><label for="tGoal">导航目标（发布）</label>
+        <input id="tGoal" class="mono" value="/goal_pose"></div>
+      <div class="frow"><label for="tStop">急停（发布）</label>
+        <input id="tStop" class="mono" value="/emergency_stop"></div>
+      <div class="frow"><label for="tOdom">里程计（订阅）</label>
+        <input id="tOdom" class="mono" value="/odom"></div>
+      <div class="frow"><label for="tBatt">电量（订阅）</label>
+        <input id="tBatt" class="mono" value="/battery"></div>
+      <div class="frow"><label for="tMap">栅格地图（订阅）</label>
+        <input id="tMap" class="mono" value="/map"></div>
+      <div class="frow"><label for="tGripFb">夹爪反馈（订阅）</label>
+        <input id="tGripFb" class="mono" value="/gripper_state"></div>
+    </div>
+    <div class="frow"><label for="selAction">任务下发方式</label>
+      <select id="selAction">
+        <option value="topic">话题模式：向 /task_cmd 发布 JSON 字符串（对接最简单）</option>
+        <option value="action">ROS2 Action：调用 navigate_to_pose / 自定义抓取 Action</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>运动与安全参数</h3>
+    <div class="fgrid">
+      <div class="frow"><label for="pLinMax">最大线速度 (m/s)</label>
+        <input id="pLinMax" type="number" inputmode="decimal" min="0.1" max="2" step="0.05" value="0.5"></div>
+      <div class="frow"><label for="pAngMax">最大角速度 (rad/s)</label>
+        <input id="pAngMax" type="number" inputmode="decimal" min="0.1" max="3" step="0.05" value="1.2"></div>
+      <div class="frow"><label for="pHz">指令发布频率 (Hz)</label>
+        <input id="pHz" type="number" inputmode="numeric" min="5" max="50" step="1" value="20"></div>
+      <div class="frow"><label for="pTimeout">通信超时告警 (ms)</label>
+        <input id="pTimeout" type="number" inputmode="numeric" min="100" max="5000" step="100" value="600"></div>
+    </div>
+    <div class="sw">
+      <div class="l"><b>松手即停</b><span>摇杆释放后立刻发送零速，而非等待超时</span></div>
+      <div class="tgl on" id="tglDeadman"><i></i></div>
+    </div>
+    <div class="sw">
+      <div class="l"><b>失联自动急停</b><span>超过超时时间无里程计反馈即触发急停</span></div>
+      <div class="tgl on" id="tglWatchdog"><i></i></div>
+    </div>
+    <div class="grid2" style="margin-top:10px">
+      <button class="btn sm" id="btnSaveSet">保存配置</button>
+      <button class="btn sm" id="btnResetSet">恢复默认</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>联调日志 <em id="logCount">0 条</em></h3>
+    <div class="logbox" id="logBox"></div>
+    <div class="grid2" style="margin-top:10px">
+      <button class="btn sm" id="btnClearLog">清空日志</button>
+      <button class="btn sm" id="btnExportLog">复制日志</button>
+    </div>
+  </div>
+</div>
+</main>
+<footer>
+  智能物品取放议题机器人 · 手机控制台 v1.0　|　前端单文件应用，指令通过 rosbridge WebSocket 下发
+</footer>
+</div>
+
+<!-- SECTION: script -->
+<script>
+(function(){
+'use strict';
+/* SECTION: constants */
+var DEF_CFG = {
+  ws:'ws://192.168.1.50:9090', vid:'',
+  tVel:'/cmd_vel', tGrip:'/gripper_cmd', tLift:'/arm_lift', tTask:'/task_cmd',
+  tGoal:'/goal_pose', tStop:'/emergency_stop',
+  tOdom:'/odom', tBatt:'/battery', tMap:'/map', tGripFb:'/gripper_state',
+  actionMode:'topic', linMax:0.5, angMax:1.2, hz:20, timeout:600,
+  simVid:true, deadman:true, watchdog:true, vision:true, force:true, avoid:true
+};
+var LS_KEY = 'robot_teleop_cfg_v1';
+
+var PICK_POINTS = [
+  {id:'A1', name:'货架 A1', desc:'仓储区 · 下层', x:1.6, y:7.4},
+  {id:'A2', name:'货架 A2', desc:'仓储区 · 中层', x:1.6, y:5.2},
+  {id:'B1', name:'货架 B1', desc:'分拣区 · 下层', x:5.0, y:7.4},
+  {id:'T1', name:'传送带 T1', desc:'上料口', x:8.2, y:2.4},
+  {id:'D1', name:'桌面 D1', desc:'家庭/工位场景', x:2.2, y:2.2}
+];
+var DROP_POINTS = [
+  {id:'C1', name:'周转箱 C1', desc:'出库暂存', x:8.0, y:7.6},
+  {id:'C2', name:'周转箱 C2', desc:'退货区', x:6.4, y:7.6},
+  {id:'S1', name:'货架 S1', desc:'成品上架位', x:5.0, y:1.8},
+  {id:'H1', name:'人手交付点', desc:'医护/递送', x:1.4, y:4.0},
+  {id:'P1', name:'充电桩旁 P1', desc:'归位暂放', x:8.6, y:4.8}
+];
+var ITEMS = [
+  {id:'box', name:'纸箱（标准）', weight:'2.5 kg', grip:18, speed:45},
+  {id:'can', name:'易拉罐', weight:'0.35 kg', grip:6, speed:55},
+  {id:'glass', name:'玻璃杯（易碎）', weight:'0.3 kg', grip:3, speed:25},
+  {id:'plush', name:'毛绒玩偶（软体）', weight:'0.4 kg', grip:5, speed:35},
+  {id:'bottle', name:'药瓶', weight:'0.2 kg', grip:2.5, speed:22},
+  {id:'parcel', name:'快递包裹', weight:'4.0 kg', grip:25, speed:40}
+];
+var STEPS = [
+  {k:'locate', name:'定位目标'},
+  {k:'nav', name:'导航接近'},
+  {k:'detect', name:'视觉识别'},
+  {k:'grasp', name:'抓取'},
+  {k:'lift', name:'提起'},
+  {k:'move', name:'搬运'},
+  {k:'place', name:'放置'},
+  {k:'done', name:'完成'}
+];
+var SPEED_MODES = [
+  {name:'低速', mul:0.35}, {name:'中速', mul:0.65}, {name:'高速', mul:1.0}
+];
+
+/* SECTION: state */
+var cfg = Object.assign({}, DEF_CFG);
+var S = {
+  connected:false, ws:null, mode:'sim', estop:false,
+  rx:0, tx:0, sub:{}, pubs:{},
+  pos:{x:8.5, y:5.0}, yaw:-Math.PI/2, lin:0, ang:0,
+  batt:88, grip:0, lift:0.30, force:0,
+  up:0, done:0, fail:0, lastOdom:0,
+  speedIdx:0, velTimer:null, simTimer:null, watchTimer:null,
+  task:null, queue:[], history:[],
+  map:null, goal:null, navState:'空闲',
+  pick:'A1', drop:'C1', item:'box',
+  mapScale:1, mapOff:{x:0, y:0}, mapDrag:null,
+  logLines:[]
+};
+
+/* SECTION: dom helpers */
+function $(id){ return document.getElementById(id); }
+function setText(id, v){ var e=$(id); if(e) e.textContent = v; }
+function setHTML(id, v){ var e=$(id); if(e) e.innerHTML = v; }
+function cls(id, c, on){ var e=$(id); if(e) e.classList.toggle(c, !!on); }
+function dis(id, d){ var e=$(id); if(e) e.disabled = !!d; }
+function loadCfg(){
+  try{
+    var raw = localStorage.getItem(LS_KEY);
+    if(raw){ var o = JSON.parse(raw); if(o && typeof o === 'object') cfg = Object.assign({}, DEF_CFG, o); }
+  }catch(e){ cfg = Object.assign({}, DEF_CFG); }
+}
+function saveCfg(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(cfg)); }catch(e){}
+}
+
+/* SECTION: log */
+function log(kind, text){
+  var box = $('logBox'); if(!box) return;
+  var d = new Date();
+  var ts = String(d.getHours()).padStart(2,'0') + ':' +
+           String(d.getMinutes()).padStart(2,'0') + ':' +
+           String(d.getSeconds()).padStart(2,'0') + '.' +
+           String(d.getMilliseconds()).padStart(3,'0');
+  var row = document.createElement('div');
+  var sp1 = document.createElement('span'); sp1.className = 't'; sp1.textContent = ts + ' ';
+  var sp2 = document.createElement('span'); sp2.className = kind; sp2.textContent = text;
+  row.appendChild(sp1); row.appendChild(sp2);
+  box.appendChild(row);
+  while(box.childNodes.length > 400) box.removeChild(box.firstChild);
+  S.logLines.push(ts + ' ' + text);
+  if(S.logLines.length > 800) S.logLines.shift();
+  box.scrollTop = box.scrollHeight;
+  setText('logCount', box.childNodes.length + ' 条');
+}
+
+/* SECTION: rosbridge transport */
+function send(obj){
+  var payload = JSON.stringify(obj);
+  if(S.connected && S.ws && S.ws.readyState === 1){
+    try{ S.ws.send(payload); S.tx++; return true; }
+    catch(e){ log('er', '发送失败：' + e.message); return false; }
+  }
+  if(S.mode === 'sim'){ S.tx++; simHandle(obj); }
+  return S.mode === 'sim';
+}
+/* 高频话题（如 20Hz 的 /cmd_vel）只在状态变化时记日志，避免刷屏与掉帧 */
+var LOG_THROTTLE = {};
+function publish(topic, type, msg){
+  var ok = send({op:'publish', topic:topic, type:type, msg:msg});
+  if(ok){
+    var body = JSON.stringify(msg);
+    var key = topic + '|' + body;
+    if(key === LOG_THROTTLE[topic]){ return ok; }
+    LOG_THROTTLE[topic] = key;
+    var brief = topic + ' ' + body;
+    log('tx', 'TX ' + (brief.length > 118 ? brief.slice(0,115) + '...' : brief));
+  }
+  return ok;
+}
+function subscribe(topic, type, handler){
+  if(S.connected && S.ws && S.ws.readyState === 1){
+    send({op:'subscribe', topic:topic, type:type, throttle_rate:80});
+    log('tx', 'SUB ' + topic);
+  }
+  S.sub[topic] = handler;
+}
+function connectWs(){
+  var url = cfg.ws.trim();
+  if(!url){ log('er', '未填写 rosbridge 地址'); alert('请先填写 WebSocket 地址'); return; }
+  if(!/^wss?:\/\//i.test(url)){ log('er', '地址格式不正确，应以 ws:// 或 wss:// 开头'); alert('地址应以 ws:// 或 wss:// 开头'); return; }
+  log('tx', '正在连接 ' + url);
+  setConnState('connecting');
+  var ws;
+  try{ ws = new WebSocket(url); }
+  catch(e){ log('er', '创建连接失败：' + e.message); setConnState('off'); return; }
+  S.ws = ws;
+  var to = setTimeout(function(){
+    if(ws.readyState !== 1){ log('er', '连接超时（10s），请检查地址与机器人侧 rosbridge 是否启动'); setConnState('off'); try{ws.close();}catch(e){} }
+  }, 10000);
+  ws.onopen = function(){
+    clearTimeout(to);
+    S.connected = true; S.mode = 'ros';
+    setConnState('on');
+    log('rx', '已连接 rosbridge，切换为真实控制模式');
+    bindSubscriptions();
+  };
+  ws.onmessage = function(ev){
+    var data;
+    try{ data = JSON.parse(ev.data); }catch(e){ return; }
+    S.rx++;
+    onRosMsg(data);
+  };
+  ws.onerror = function(){ log('er', 'WebSocket 错误：无法建立连接'); };
+  ws.onclose = function(ev){
+    clearTimeout(to);
+    S.connected = false;
+    if(S.mode === 'ros'){
+      S.mode = 'sim';
+      log('wn', '连接已断开（code ' + ev.code + '），回落到模拟模式');
+      if(cfg.watchdog && !S.estop) triggerEstop('通信中断');
+    }
+    setConnState('off');
+    S.ws = null;
+  };
+}
+function disconnectWs(){
+  if(S.ws){ try{ S.ws.close(); }catch(e){} }
+  S.connected = false; S.mode = 'sim';
+  setConnState('off');
+  log('wn', '已主动断开连接');
+  startSim();
+}
+function bindSubscriptions(){
+  subscribe(cfg.tOdom, 'nav_msgs/Odometry', null);
+  subscribe(cfg.tBatt, 'sensor_msgs/BatteryState', null);
+  subscribe(cfg.tMap, 'nav_msgs/OccupancyGrid', null);
+  subscribe(cfg.tGripFb, 'std_msgs/Float32', null);
+}
+function onRosMsg(d){
+  if(!d || d.op !== 'publish' || !d.topic) return;
+  var h = S.sub[d.topic];
+  var m = d.msg || {};
+  if(d.topic === cfg.tOdom){
+    var p = (m.pose && m.pose.pose && m.pose.pose.position) || null;
+    var q = (m.pose && m.pose.pose && m.pose.pose.orientation) || null;
+    if(p){ S.pos.x = p.x; S.pos.y = p.y; }
+    if(q){ S.yaw = Math.atan2(2*(q.w*q.z + q.x*q.y), 1 - 2*(q.y*q.y + q.z*q.z)); }
+    var tw = m.twist && m.twist.twist;
+    if(tw && tw.linear){ S.lin = tw.linear.x || 0; S.ang = tw.angular ? (tw.angular.z||0) : 0; }
+    S.lastOdom = Date.now();
+  } else if(d.topic === cfg.tBatt){
+    var v = (typeof m.percentage === 'number') ? m.percentage : parseFloat(m.data);
+    if(!isNaN(v)){ S.batt = v <= 1 ? v*100 : v; }
+  } else if(d.topic === cfg.tMap){
+    applyRealMap(m);
+  } else if(d.topic === cfg.tGripFb){
+    var g = parseFloat(m.data);
+    if(!isNaN(g)){ S.grip = g <= 1 ? g*100 : g; }
+  }
+  if(typeof h === 'function') h(m);
+  renderHud();
+}
+function setConnState(st){
+  var dot = $('connDot'), txt = $('connTxt');
+  dot.className = 'dot';
+  if(st === 'on'){ dot.classList.add('on'); txt.textContent = '已连接'; S.mode='ros'; }
+  else if(st === 'connecting'){ dot.classList.add('sim'); txt.textContent = '连接中…'; }
+  else if(st === 'err'){ dot.classList.add('err'); txt.textContent = '连接失败'; }
+  else { dot.classList.add('sim'); txt.textContent = '模拟模式'; S.mode='sim'; }
+  setText('kvConn', S.mode==='ros' ? 'rosbridge WebSocket' : '模拟模式（内置虚拟机器人）');
+  setText('stateSrc', S.mode==='ros' ? '真实设备数据' : '模拟数据');
+  dis('btnConn', st==='on' || st==='connecting');
+  dis('btnDisc', st!=='on');
+  var nt = $('simNotice');
+  if(nt) nt.style.display = (S.mode==='ros') ? 'none' : '';
+}
+
+/* SECTION: motion command */
+function twistMsg(lin, ang){
+  return {linear:{x:lin, y:0, z:0}, angular:{x:0, y:0, z:ang}};
+}
+function publishVel(){
+  if(S.estop){ return; }
+  var m = SPEED_MODES[S.speedIdx].mul;
+  var lin = S.joyVec ? S.joyVec.y * cfg.linMax * m : 0;
+  var str = S.joyVec ? S.joyVec.x * cfg.linMax * m : 0;
+  var ang = S.joyVec ? S.joyVec.r * cfg.angMax * m : 0;
+  publish(cfg.tVel, 'geometry_msgs/Twist', twistMsg(lin, ang));
+}
+function startVelLoop(){
+  stopVelLoop();
+  var iv = Math.max(20, Math.round(1000 / (cfg.hz || 20)));
+  S.velTimer = setInterval(function(){
+    if(S.joyActive || S.mode === 'ros') publishVel();
+  }, iv);
+}
+function stopVelLoop(){ if(S.velTimer){ clearInterval(S.velTimer); S.velTimer = null; } }
+function zeroVel(reason){
+  publish(cfg.tVel, 'geometry_msgs/Twist', twistMsg(0,0));
+  if(reason) log('wn', '已发送零速：' + reason);
+}
+function setGripper(v){
+  publish(cfg.tGrip, 'std_msgs/Float32', {data:v});
+  if(S.mode === 'sim') S.grip = v * 100;
+  renderHud();
+}
+function setLift(v){
+  publish(cfg.tLift, 'std_msgs/Float32', {data:v});
+  if(S.mode === 'sim'){ S.lift = Math.max(0.05, Math.min(1.2, v)); }
+  renderHud();
+}
+
+/* SECTION: estop */
+function triggerEstop(reason){
+  S.estop = true;
+  S.joyVec = null; S.joyActive = false;
+  resetKnob();
+  zeroVel();
+  publish(cfg.tStop, 'std_msgs/Bool', {data:true});
+  cls('lockBar', 'show', true);
+  cls('btnEstop', 'armed', true);
+  setText('btnEstop', '急停中 · 点击解除');
+  setLockControls(true);
+  log('er', '紧急停止触发' + (reason ? '（' + reason + '）' : ''));
+  pauseTask(true);
+  renderHud();
+}
+function releaseEstop(){
+  S.estop = false;
+  publish(cfg.tStop, 'std_msgs/Bool', {data:false});
+  cls('lockBar', 'show', false);
+  cls('btnEstop', 'armed', false);
+  setText('btnEstop', '紧 急 停 止');
+  setLockControls(false);
+  log('rx', '急停已解除，操控区恢复');
+}
+function setLockControls(lock){
+  cls('joy', 'locked', lock);
+  ['btnLiftU','btnLiftD','btnGripC','btnGripO','btnStartTask','btnGo','btnGoWp','btnHome'].forEach(function(id){
+    dis(id, lock);
+  });
+}
+
+/* SECTION: joystick */
+function setupJoystick(){
+  var joy = $('joy'), knob = $('knob');
+  var active = false, pid = null, rect = null;
+  function pos(e){
+    var r = rect || joy.getBoundingClientRect();
+    var cx = r.left + r.width/2, cy = r.top + r.height/2;
+    var dx = e.clientX - cx, dy = e.clientY - cy;
+    var rad = r.width/2 * 0.68;
+    var dist = Math.sqrt(dx*dx + dy*dy);
+    if(dist > rad){ dx = dx/dist*rad; dy = dy/dist*rad; dist = rad; }
+    return {nx: dx/rad, ny: -dy/rad, px: dx, py: dy};
+  }
+  function apply(v){
+    knob.style.transform = 'translate(' + v.px + 'px,' + v.py + 'px)';
+    var mag = Math.sqrt(v.nx*v.nx + v.ny*v.ny);
+    var turnOnly = Math.abs(v.nx) > Math.abs(v.ny) * 1.9;
+    S.joyVec = turnOnly
+      ? {x:0, y:0, r:Math.max(-1, Math.min(1, v.nx))}
+      : {x:v.nx * (mag > 0.25 ? 0.55 : 0), y:v.ny, r:0};
+    var m = SPEED_MODES[S.speedIdx].mul;
+    setText('joyOut', '线速度 ' + (S.joyVec.y*cfg.linMax*m).toFixed(2) +
+      (S.joyVec.x ? ' / 横移 ' + (S.joyVec.x*cfg.linMax*m).toFixed(2) : '') +
+      ' m/s · 角速度 ' + (S.joyVec.r*cfg.angMax*m).toFixed(2) + ' rad/s');
+    setText('kvVel', (S.joyVec.y*cfg.linMax*m).toFixed(2) + ' / ' + (S.joyVec.r*cfg.angMax*m).toFixed(2) + ' m/s · rad/s');
+  }
+  function down(e){
+    if(S.estop) return;
+    active = true; S.joyActive = true; pid = e.pointerId;
+    rect = joy.getBoundingClientRect();
+    try{ joy.setPointerCapture(pid); }catch(err){}
+    apply(pos(e));
+    publishVel();
+    e.preventDefault();
+  }
+  function move(e){
+    if(!active || (pid !== null && e.pointerId !== pid)) return;
+    apply(pos(e));
+    e.preventDefault();
+  }
+  function up(e){
+    if(!active) return;
+    active = false; S.joyActive = false; pid = null; rect = null;
+    S.joyVec = null;
+    resetKnob();
+    if(cfg.deadman) zeroVel('摇杆释放');
+    setText('joyOut', '线速度 0.00 m/s · 角速度 0.00 rad/s');
+    setText('kvVel', '0.00 / 0.00 m/s');
+  }
+  joy.addEventListener('pointerdown', down);
+  joy.addEventListener('pointermove', move);
+  joy.addEventListener('pointerup', up);
+  joy.addEventListener('pointercancel', up);
+  joy.addEventListener('lostpointercapture', up);
+  joy.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+
+  /* keyboard */
+  var keys = {};
+  function keyVec(){
+    var x=0,y=0,r=0;
+    if(keys['w']||keys['arrowup']) y = 1;
+    if(keys['s']||keys['arrowdown']) y = -1;
+    if(keys['a']||keys['arrowleft']) r = 1;
+    if(keys['d']||keys['arrowright']) r = -1;
+    if(keys['q']) x = -1;
+    if(keys['e']) x = 1;
+    if(!x && !y && !r) return null;
+    return {x:x, y:y, r:r};
+  }
+  window.addEventListener('keydown', function(e){
+    var t = e.target;
+    if(t && (t.tagName==='INPUT'||t.tagName==='SELECT'||t.tagName==='TEXTAREA')) return;
+    var k = e.key.toLowerCase();
+    if(['w','a','s','d','q','e','arrowup','arrowdown','arrowleft','arrowright'].indexOf(k) < 0) return;
+    if($('p-drive').classList.contains('sel') === false) return;
+    keys[k] = true; e.preventDefault();
+    if(S.estop) return;
+    S.joyVec = keyVec(); S.joyActive = !!S.joyVec;
+    var v = S.joyVec;
+    if(v){
+      knob.style.transform = 'translate(' + (v.x*28) + 'px,' + (-v.y*28) + 'px)';
+      var m = SPEED_MODES[S.speedIdx].mul;
+      setText('joyOut', '键盘控制 · 线速度 ' + (v.y*cfg.linMax*m).toFixed(2) + ' m/s · 角速度 ' + (v.r*cfg.angMax*m).toFixed(2) + ' rad/s');
+      publishVel();
+    }
+  });
+  window.addEventListener('keyup', function(e){
+    var k = e.key.toLowerCase();
+    keys[k] = false;
+    var v = keyVec();
+    S.joyVec = v; S.joyActive = !!v;
+    if(!v){ resetKnob(); if(cfg.deadman) zeroVel('按键释放');
+      setText('joyOut','线速度 0.00 m/s · 角速度 0.00 rad/s'); }
+  });
+}
+function resetKnob(){ var k=$('knob'); if(k) k.style.transform = 'translate(0px,0px)'; }
+
+/* SECTION: simulation */
+function startSim(){
+  if(S.simTimer) clearInterval(S.simTimer);
+  if(!S.map) S.map = genSimMap();
+  S.lastOdom = Date.now();
+  S.simTimer = setInterval(function(){
+    var dt = 0.06;
+    S.up += dt;
+    if(S.joyVec && !S.estop){
+      var m = SPEED_MODES[S.speedIdx].mul;
+      var lin = S.joyVec.y * cfg.linMax * m;
+      var str = S.joyVec.x * cfg.linMax * m;
+      var ang = S.joyVec.r * cfg.angMax * m;
+      S.yaw += ang * dt;
+      var c = Math.cos(S.yaw), s = Math.sin(S.yaw);
+      var nx = S.pos.x + (lin*c - str*s) * dt;
+      var ny = S.pos.y + (lin*s + str*c) * dt;
+      if(free(nx, ny)){ S.pos.x = nx; S.pos.y = ny; }
+      S.lin = lin; S.ang = ang;
+      S.batt = Math.max(5, S.batt - dt*0.006);
+    } else { S.lin = 0; S.ang = 0; }
+    if(!S.task){ S.batt = Math.max(5, S.batt - dt*0.0008); }
+    S.force = S.grip > 2 ? Math.min(cfgForceMax(), S.grip/100 * cfgForceMax() * 1.15) : 0;
+    S.lastOdom = Date.now();
+    renderHud(); drawMap(); drawVidSim();
+    if(S.task) stepTask(dt);
+  }, 60);
+  startWatchdog();
+}
+function cfgForceMax(){ var e=$('inForce'); var v=parseFloat(e?e.value:'8'); return isNaN(v)?8:v; }
+function free(x, y){
+  var mp = S.map; if(!mp) return true;
+  if(x < 0.2 || y < 0.2 || x > mp.w*mp.res-0.2 || y > mp.h*mp.res-0.2) return false;
+  var gx = Math.floor(x/mp.res), gy = Math.floor(y/mp.res);
+  for(var i=-1;i<=1;i++) for(var j=-1;j<=1;j++){
+    var a=gx+i, b=gy+j;
+    if(a<0||b<0||a>=mp.w||b>=mp.h) return false;
+    if(mp.data[b*mp.w+a] >= 60) return false;
+  }
+  return true;
+}
+function startWatchdog(){
+  if(S.watchTimer) clearInterval(S.watchTimer);
+  S.watchTimer = setInterval(function(){
+    if(S.mode !== 'ros' || !cfg.watchdog || S.estop) return;
+    if(Date.now() - S.lastOdom > cfg.timeout){
+      triggerEstop('里程计反馈超时 ' + cfg.timeout + 'ms');
+    }
+  }, 300);
+}
+function genSimMap(){
+  var res = 0.1, w = 100, h = 100;
+  var data = new Array(w*h).fill(0);
+  function rect(x0,y0,x1,y1,v){
+    for(var y=y0;y<=y1;y++) for(var x=x0;x<=x1;x++){
+      if(x>=0&&y>=0&&x<w&&y<h) data[y*w+x]=v;
+    }
+  }
+  rect(0,0,w-1,1,100); rect(0,h-2,w-1,h-1,100);
+  rect(0,0,1,h-1,100); rect(w-2,0,w-1,h-1,100);
+  rect(10,58,14,88,100); rect(10,30,14,48,100);
+  rect(38,58,42,88,100); rect(38,8,42,40,100);
+  rect(62,58,66,88,100); rect(62,8,66,32,100);
+  rect(84,58,88,80,100);
+  rect(20,4,32,7,100); rect(70,44,84,47,100);
+  for(var i=0;i<240;i++){
+    var rx = 3+Math.floor(Math.random()*(w-6)), ry = 3+Math.floor(Math.random()*(h-6));
+    if(data[ry*w+rx]===0) data[ry*w+rx] = -1;
+  }
+  return {w:w, h:h, res:res, data:data, origin:{x:0,y:0}};
+}
+function applyRealMap(m){
+  if(!m || !m.info || !m.data) return;
+  var info = m.info;
+  var arr = m.data;
+  if(arr && typeof arr.length === 'undefined' && typeof arr === 'object'){
+    arr = Object.keys(arr).map(function(k){ return arr[k]; });
+  }
+  S.map = {
+    w: info.width, h: info.height, res: info.resolution,
+    data: arr, origin: info.origin ? info.origin.position : {x:0,y:0}
+  };
+  setText('mapSrcTxt', '实时地图 ' + info.width + '×' + info.height + ' · ' + (info.resolution||0.05).toFixed(3) + ' m/格');
+  drawMap();
+  log('rx', '收到地图 ' + info.width + '×' + info.height);
+}
+
+/* SECTION: task engine */
+function currentTaskDef(){
+  var pk = findPt(PICK_POINTS, S.pick), dp = findPt(DROP_POINTS, S.drop);
+  var it = findIt(S.item);
+  return {
+    id: 'T' + String(Date.now()).slice(-6),
+    from: pk, to: dp, item: it,
+    force: parseFloat($('inForce').value) || 8,
+    speed: parseInt($('inSpeed').value, 10) || 45,
+    gripper: $('selGripper').value,
+    vision: cfg.vision, forceCtl: cfg.force, avoid: cfg.avoid,
+    ts: new Date().toLocaleTimeString('zh-CN', {hour12:false})
+  };
+}
+function findPt(arr, id){ for(var i=0;i<arr.length;i++) if(arr[i].id===id) return arr[i]; return arr[0]; }
+function findIt(id){ for(var i=0;i<ITEMS.length;i++) if(ITEMS[i].id===id) return ITEMS[i]; return ITEMS[0]; }
+function startTask(def){
+  S.task = {
+    def: def, idx: 0, prog: 0, paused: false, cancelled: false,
+    phaseT: 0, retries: 0, started: Date.now()
+  };
+  var payload = {
+    action: 'pick_and_place', task_id: def.id,
+    pick: {id: def.from.id, x: def.from.x, y: def.from.y},
+    place: {id: def.to.id, x: def.to.x, y: def.to.y},
+    item: def.item.id, force_limit: def.force, arm_speed_pct: def.speed,
+    end_effector: def.gripper, vision_recheck: def.vision,
+    force_control: def.forceCtl, dynamic_avoidance: def.avoid
+  };
+  if(cfg.actionMode === 'action' && S.mode === 'ros'){
+    send({op:'send_action_msg', id: Math.floor(Math.random()*1e6),
+      action:'pick_and_place', action_type:'robot_msgs/action/PickAndPlace', args: payload});
+    log('tx', 'ACTION pick_and_place ' + def.id);
+  } else {
+    publish(cfg.tTask, 'std_msgs/String', {data: JSON.stringify(payload)});
+  }
+  setText('taskStateTxt', '执行中 · ' + def.id);
+  dis('btnStartTask', true); dis('btnPauseTask', false);
+  dis('btnCancelTask', false); dis('btnRetryTask', false);
+  renderTask();
+  log('rx', '任务下发：' + def.from.name + ' → ' + def.to.name + '（' + def.item.name + '）');
+}
+var STEP_MSG = {
+  locate:'正在解算取货点位姿，检索本地物品数据库…',
+  nav:'底盘导航接近取货点，实时局部避障中…',
+  detect:'RGB-D 相机识别物体类别与最佳抓取点…',
+  grasp:'机械臂下降，接触后切换力矩控制夹紧…',
+  lift:'提起物品，检测是否发生滑落…',
+  move:'搬运至放置点，路径已重规划…',
+  place:'对准放置点，缓慢释放夹爪…',
+  done:'任务完成，机械臂回到安全位姿。'
+};
+function stepTask(dt){
+  var t = S.task; if(!t || t.paused || t.cancelled) return;
+  t.phaseT += dt;
+  var need = 1.6 + (t.def.avoid ? 0.4 : 0);
+  if(t.idx === 2) need = t.def.vision ? 2.2 : 1.4;
+  if(t.idx === 3) need = 2.4;
+  if(t.idx === 6) need = 2.0;
+  if(t.cfgSimNav) need = 2.0;
+  if(t.idx === 1 || t.idx === 5){
+    var target = (t.idx === 1) ? t.def.from : t.def.to;
+    if(target){
+      var dx = target.x - S.pos.x, dy = target.y - S.pos.y;
+      var d = Math.sqrt(dx*dx + dy*dy);
+      if(d > 0.25){
+        var sp = Math.min(0.6, d*0.5) * dt;
+        var nx = S.pos.x + dx/d*sp, ny = S.pos.y + dy/d*sp;
+        if(free(nx,ny)){ S.pos.x = nx; S.pos.y = ny; }
+        else { var a = Math.atan2(dy,dx) + (Math.random()-0.5)*1.2;
+          nx = S.pos.x + Math.cos(a)*sp; ny = S.pos.y + Math.sin(a)*sp;
+          if(free(nx,ny)){ S.pos.x=nx; S.pos.y=ny; } }
+        S.yaw = Math.atan2(dy, dx);
+      }
+      need = 99;
+      if(d <= 0.3) t.phaseT = need + 1;
+    }
+  }
+  if(t.idx === 3){
+    var gf = t.def.force / 30;
+    S.grip = Math.min(100, S.grip + dt*55);
+    S.force = Math.min(t.def.force, S.force + dt*t.def.force*0.7);
+    if(S.grip > 70) t.phaseT = need + 1;
+  } else if(t.idx === 6){
+    S.grip = Math.max(0, S.grip - dt*60);
+    S.force = Math.max(0, S.force - dt*t.def.force);
+    if(S.grip <= 2) t.phaseT = need + 1;
+  } else if(t.idx === 4){
+    S.lift = Math.min(0.62, S.lift + dt*0.22);
+    if(S.lift >= 0.6) t.phaseT = need + 1;
+  } else if(t.idx === 7){
+    S.lift = Math.max(0.30, S.lift - dt*0.22);
+    if(S.lift <= 0.31) t.phaseT = need + 1;
+  }
+  t.prog = Math.min(1, t.phaseT / need);
+  if(t.phaseT >= need){
+    if(t.prog < 1){ t.prog = 1; renderTask(); return; }
+    t.idx++;
+    t.phaseT = 0; t.prog = 0;
+    if(t.idx >= STEPS.length){ finishTask(true); return; }
+    onStepEnter(t);
+    renderTask();
+  } else { renderTask(); }
+}
+function onStepEnter(t){
+  var k = STEPS[t.idx].k;
+  if(k === 'detect' && t.def.vision && t.retries < 1 && Math.random() < 0.18){
+    t.retries++;
+    log('wn', '视觉置信度 0.71 < 0.85，调整观测条件后重拍…');
+    t.idx = Math.max(0, t.idx); t.phaseT = 0;
+  }
+  if(k === 'grasp'){ setGripper(0); }
+  if(k === 'lift'){ S.grasped = true; }
+  if(k === 'place'){ setGripper(0); }
+  log('rx', '进入阶段：' + STEPS[t.idx].name);
+}
+function finishTask(ok){
+  var t = S.task; if(!t) return;
+  var def = t.def;
+  S.history.unshift({
+    id: def.id, ok: ok, txt: def.from.name + ' → ' + def.to.name,
+    item: def.item.name, time: ((Date.now()-t.started)/1000).toFixed(1) + 's',
+    ts: new Date().toLocaleTimeString('zh-CN',{hour12:false})
+  });
+  if(S.history.length > 30) S.history.pop();
+  if(ok) S.done++; else S.fail++;
+  S.task = null; S.grasped = false;
+  setGripper(0);
+  setText('taskStateTxt', ok ? '已完成 · ' + def.id : '已取消 · ' + def.id);
+  dis('btnStartTask', false); dis('btnPauseTask', true);
+  dis('btnCancelTask', true); dis('btnRetryTask', true);
+  setPbar(ok ? 100 : 0);
+  setText('pMsg', ok ? '取放任务完成：' + def.item.name + ' 已从 ' + def.from.name + ' 送达 ' + def.to.name : '任务已取消');
+  markSteps(ok ? STEPS.length : -1);
+  log(ok ? 'rx' : 'wn', (ok ? '任务完成 ' : '任务取消 ') + def.id);
+  renderQueue(); renderHistory(); renderHud();
+  runQueue();
+}
+function pauseTask(byEstop){
+  var t = S.task; if(!t) return;
+  if(byEstop){ t.paused = true; setText('taskStateTxt','已暂停 · 急停'); return; }
+  t.paused = !t.paused;
+  setText('btnPauseTask', t.paused ? '继续任务' : '暂停 / 继续');
+  setText('taskStateTxt', t.paused ? '已暂停 · ' + t.def.id : '执行中 · ' + t.def.id);
+  log('wn', t.paused ? '任务已暂停' : '任务已继续');
+}
+function cancelTask(){
+  var t = S.task; if(!t) return;
+  t.cancelled = true;
+  publish(cfg.tTask, 'std_msgs/String', {data: JSON.stringify({action:'cancel', task_id:t.def.id})});
+  zeroVel('取消任务');
+  finishTask(false);
+}
+function renderTask(){
+  var t = S.task;
+  if(!t) return;
+  var total = ((t.idx + Math.min(1, t.prog)) / STEPS.length) * 100;
+  setPbar(total);
+  setText('pMsg', '【' + STEPS[t.idx].name + '】' + STEP_MSG[STEPS[t.idx].k]);
+  markSteps(t.idx, t.prog >= 1);
+}
+function setPbar(v){ var e=$('pFill'); if(e) e.style.width = Math.max(0,Math.min(100,v)) + '%'; }
+function markSteps(activeIdx, curDone){
+  var box = $('stepLine'); if(!box) return;
+  var kids = box.children;
+  for(var i=0;i<kids.length;i++){
+    kids[i].className = 'stp';
+    if(activeIdx < 0) continue;
+    if(i < activeIdx) kids[i].classList.add('done');
+    else if(i === activeIdx) kids[i].classList.add(curDone ? 'done' : 'act');
+  }
+}
+function buildSteps(){
+  var box = $('stepLine'); if(!box) return;
+  box.textContent = '';
+  STEPS.forEach(function(s){
+    var d = document.createElement('div');
+    d.className = 'stp'; d.textContent = s.name;
+    box.appendChild(d);
+  });
+}
+function enqueue(){
+  var def = currentTaskDef();
+  S.queue.push(def);
+  renderQueue();
+  log('rx', '已加入队列：' + def.from.name + ' → ' + def.to.name + '（' + def.item.name + '）');
+  runQueue();
+}
+function runQueue(){
+  if(S.task || S.estop || !S.queue.length) return;
+  var def = S.queue.shift();
+  renderQueue();
+  startTask(def);
+}
+function renderQueue(){
+  var box = $('queue'); if(!box) return;
+  box.textContent = '';
+  setText('qCount', S.queue.length + ' 条');
+  if(!S.queue.length){
+    var e = document.createElement('div');
+    e.className = 'hint'; e.style.margin = '0';
+    e.textContent = '队列为空。选好后点击「加入队列」可排入多条任务。';
+    box.appendChild(e); return;
+  }
+  S.queue.forEach(function(q, i){
+    var row = document.createElement('div');
+    row.className = 'slot';
+    var ic = document.createElement('div'); ic.className = 'ic'; ic.textContent = '📦';
+    var tx = document.createElement('div'); tx.className = 'tx';
+    var b = document.createElement('b'); b.textContent = '#' + (i+1) + ' ' + q.from.name + ' → ' + q.to.name;
+    var sp = document.createElement('span'); sp.textContent = q.item.name + ' · 夹持力 ' + q.force + 'N · 臂速 ' + q.speed + '%';
+    tx.appendChild(b); tx.appendChild(sp);
+    var btn = document.createElement('button'); btn.textContent = '✕'; btn.title = '移除';
+    btn.addEventListener('click', function(){ S.queue.splice(i,1); renderQueue(); });
+    row.appendChild(ic); row.appendChild(tx); row.appendChild(btn);
+    box.appendChild(row);
+  });
+}
+function renderHistory(){
+  var box = $('history'); if(!box) return;
+  box.textContent = '';
+  if(!S.history.length){
+    var e = document.createElement('div'); e.className='hint'; e.style.margin='0';
+    e.textContent = '暂无执行记录。'; box.appendChild(e); return;
+  }
+  S.history.forEach(function(h){
+    var row = document.createElement('div');
+    row.className = 'slot';
+    var ic = document.createElement('div'); ic.className='ic';
+    ic.textContent = h.ok ? '✅' : '⛔';
+    var tx = document.createElement('div'); tx.className='tx';
+    var b = document.createElement('b'); b.textContent = h.txt;
+    var sp = document.createElement('span');
+    sp.textContent = h.id + ' · ' + h.item + ' · 用时 ' + h.time + ' · ' + (h.ok?'成功':'取消') + ' · ' + h.ts;
+    tx.appendChild(b); tx.appendChild(sp);
+    row.appendChild(ic); row.appendChild(tx);
+    box.appendChild(row);
+  });
+}
+
+/* SECTION: point lists */
+function buildPointList(boxId, arr, selKey){
+  var box = $(boxId); if(!box) return;
+  box.textContent = '';
+  arr.forEach(function(p){
+    var row = document.createElement('div');
+    row.className = 'slot' + (S[selKey] === p.id ? ' sel' : '');
+    row.dataset.pid = p.id;
+    var ic = document.createElement('div'); ic.className='ic';
+    ic.textContent = selKey === 'pick' ? '📍' : '🎯';
+    var tx = document.createElement('div'); tx.className='tx';
+    var b = document.createElement('b'); b.textContent = p.name;
+    var sp = document.createElement('span'); sp.textContent = p.desc + ' · 坐标 (' + p.x.toFixed(1) + ', ' + p.y.toFixed(1) + ') m';
+    tx.appendChild(b); tx.appendChild(sp);
+    var btn = document.createElement('button'); btn.textContent = '选';
+    btn.addEventListener('click', function(){
+      S[selKey] = p.id;
+      buildPointList('pickList', PICK_POINTS, 'pick');
+      buildPointList('dropList', DROP_POINTS, 'drop');
+      drawMap();
+      log('rx', (selKey==='pick'?'取货点':'放置点') + '设为 ' + p.name);
+    });
+    row.appendChild(ic); row.appendChild(tx); row.appendChild(btn);
+    box.appendChild(row);
+  });
+}
+function buildItems(){
+  var sel = $('selItem'); if(!sel) return;
+  sel.textContent = '';
+  ITEMS.forEach(function(it){
+    var o = document.createElement('option');
+    o.value = it.id; o.textContent = it.name + '　' + it.weight;
+    sel.appendChild(o);
+  });
+  sel.value = S.item;
+  sel.addEventListener('change', function(){
+    S.item = sel.value;
+    var it = findIt(S.item);
+    $('inForce').value = it.grip;
+    $('inSpeed').value = it.speed;
+    log('rx', '物品切换为 ' + it.name + '，自动套用推荐参数：夹持力 ' + it.grip + 'N / 臂速 ' + it.speed + '%');
+  });
+}
+function buildWaypoints(){
+  var sel = $('selWaypoint'); if(!sel) return;
+  sel.textContent = '';
+  var all = [{id:'charge', name:'充电桩', x:9.0, y:5.0}]
+    .concat(PICK_POINTS.map(function(p){return {id:p.id,name:p.name+'（取货）',x:p.x,y:p.y};}))
+    .concat(DROP_POINTS.map(function(p){return {id:p.id,name:p.name+'（放置）',x:p.x,y:p.y};}));
+  all.forEach(function(w){
+    var o = document.createElement('option');
+    o.value = w.x + ',' + w.y;
+    o.textContent = w.name + '  (' + w.x.toFixed(1) + ', ' + w.y.toFixed(1) + ')';
+    sel.appendChild(o);
+  });
+}
+
+/* SECTION: navigation */
+function setGoal(x, y, src){
+  S.goal = {x:x, y:y};
+  setText('kvGoal', '(' + x.toFixed(2) + ', ' + y.toFixed(2) + ') m');
+  var d = Math.sqrt(Math.pow(x-S.pos.x,2) + Math.pow(y-S.pos.y,2));
+  setText('kvDist', d.toFixed(2) + ' m');
+  dis('btnGo', false);
+  log('rx', '导航目标已设置：(' + x.toFixed(2) + ', ' + y.toFixed(2) + ')' + (src?' · '+src:''));
+  drawMap();
+}
+function goGoal(){
+  if(!S.goal || S.estop) return;
+  var g = S.goal;
+  var pose = {
+    header:{frame_id:'map', stamp:{sec:Math.floor(Date.now()/1000), nanosec:0}},
+    pose:{pose:{position:{x:g.x, y:g.y, z:0}, orientation:{x:0,y:0,z:0,w:1}}}
+  };
+  if(cfg.actionMode === 'action' && S.mode === 'ros'){
+    send({op:'send_action_msg', id: Math.floor(Math.random()*1e6),
+      action:'navigate_to_pose', action_type:'nav2_msgs/action/NavigateToPose', args:{pose:pose}});
+    log('tx', 'ACTION navigate_to_pose');
+  } else {
+    publish(cfg.tGoal, 'geometry_msgs/PoseStamped', pose);
+  }
+  S.navState = '导航中';
+  setText('kvNav', '导航中…');
+  dis('btnCancelNav', false);
+  if(S.mode === 'sim'){
+    S.task = {def:{from:g, to:g, item:{name:'导航'}, force:8, speed:45, avoid:true},
+      idx:1, prog:0, paused:false, cancelled:false, phaseT:0, retries:0,
+      started:Date.now(), navOnly:true};
+  }
+}
+function cancelNav(){
+  if(S.task && S.task.navOnly){ S.task.cancelled = true; S.task = null; }
+  publish(cfg.tTask, 'std_msgs/String', {data: JSON.stringify({action:'cancel_nav'})});
+  zeroVel('取消导航');
+  S.navState = '空闲'; setText('kvNav', '空闲');
+  dis('btnCancelNav', true);
+  log('wn', '导航已取消');
+}
+
+/* SECTION: map canvas */
+function setupMap(){
+  var wrap = $('mapWrap'), cv = $('mapCv');
+  function sizeCanvas(){
+    var r = wrap.getBoundingClientRect();
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.max(1, Math.round(r.width*dpr));
+    cv.height = Math.max(1, Math.round(r.height*dpr));
+    drawMap();
+  }
+  window.addEventListener('resize', sizeCanvas);
+  setTimeout(sizeCanvas, 60);
+
+  var moved = false, last = null, pid = null;
+  wrap.addEventListener('pointerdown', function(e){
+    pid = e.pointerId; moved = false;
+    last = {x:e.clientX, y:e.clientY};
+    try{ wrap.setPointerCapture(pid); }catch(err){}
+  });
+  wrap.addEventListener('pointermove', function(e){
+    if(!last || (pid!==null && e.pointerId!==pid)) return;
+    var dx = e.clientX-last.x, dy = e.clientY-last.y;
+    if(Math.abs(dx)>3 || Math.abs(dy)>3) moved = true;
+    if(moved){ S.mapOff.x += dx; S.mapOff.y += dy; last={x:e.clientX,y:e.clientY}; drawMap(); }
+  });
+  function end(e){
+    if(!last){ return; }
+    var r = wrap.getBoundingClientRect();
+    var wasClick = !moved;
+    last = null; pid = null;
+    if(wasClick && e && e.clientX !== undefined){
+      var px = e.clientX - r.left, py = e.clientY - r.top;
+      var wpt = toWorld(px, py, r.width, r.height);
+      if(wpt) setGoal(wpt.x, wpt.y, '地图点选');
+    }
+  }
+  wrap.addEventListener('pointerup', end);
+  wrap.addEventListener('pointercancel', function(){ last=null; pid=null; });
+  wrap.addEventListener('wheel', function(e){
+    e.preventDefault();
+    zoomMap(e.deltaY < 0 ? 1.12 : 0.89);
+  }, {passive:false});
+  $('mapZin').addEventListener('click', function(){ zoomMap(1.2); });
+  $('mapZout').addEventListener('click', function(){ zoomMap(1/1.2); });
+  $('mapRecenter').addEventListener('click', function(){ S.mapOff={x:0,y:0}; S.mapScale=1; drawMap(); });
+}
+function zoomMap(f){
+  S.mapScale = Math.max(0.4, Math.min(6, S.mapScale * f));
+  drawMap();
+}
+function mapGeo(cw, ch){
+  var mp = S.map; if(!mp) return null;
+  var mw = mp.w*mp.res, mh = mp.h*mp.res;
+  var base = Math.min(cw/mw, ch/mh) * 0.92;
+  var sc = base * S.mapScale;
+  var ox = cw/2 - (S.pos.x*sc) + S.mapOff.x;
+  var oy = ch/2 + (S.pos.y*sc) + S.mapOff.y;
+  return {sc:sc, ox:ox, oy:oy};
+}
+function toWorld(px, py, cw, ch){
+  var g = mapGeo(cw, ch); if(!g) return null;
+  return {x:(px-g.ox)/g.sc, y:(g.oy-py)/g.sc};
+}
+function drawMap(){
+  var cv = $('mapCv'); if(!cv || !cv.width) return;
+  var ctx = cv.getContext('2d');
+  var cw = cv.width, ch = cv.height;
+  var dpr = Math.min(window.devicePixelRatio||1, 2);
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle = '#05080f'; ctx.fillRect(0,0,cw,ch);
+  var mp = S.map; if(!mp) return;
+  var g = mapGeo(cw, ch); if(!g) return;
+  var cell = mp.res * g.sc;
+  ctx.save();
+  ctx.translate(g.ox, g.oy); ctx.scale(1,-1);
+  if(cell >= 1.2){
+    for(var y=0;y<mp.h;y++){
+      for(var x=0;x<mp.w;x++){
+        var v = mp.data[y*mp.w+x];
+        if(v === undefined) continue;
+        if(v >= 60) ctx.fillStyle = '#334155';
+        else if(v < 0) ctx.fillStyle = '#0a1120';
+        else continue;
+        ctx.fillRect(x*cell, y*cell, cell+0.6, cell+0.6);
+      }
+    }
+  } else {
+    ctx.fillStyle = '#1b2436';
+    ctx.fillRect(0, 0, mp.w*cell, mp.h*cell);
+    ctx.fillStyle = '#334155';
+    for(var y2=0;y2<mp.h;y2++){
+      for(var x2=0;x2<mp.w;x2++){
+        if((mp.data[y2*mp.w+x2]||0) >= 60) ctx.fillRect(x2*cell, y2*cell, cell+0.5, cell+0.5);
+      }
+    }
+  }
+  /* goals */
+  function mark(wx, wy, color, label){
+    var px = wx*cell, py = wy*cell;
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(px, py, 5*dpr, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = color; ctx.lineWidth = 1.4*dpr;
+    ctx.beginPath(); ctx.arc(px, py, 9*dpr, 0, Math.PI*2); ctx.stroke();
+  }
+  PICK_POINTS.forEach(function(p){ if(S.pick===p.id) mark(p.x, p.y, '#22c55e', p.id); });
+  DROP_POINTS.forEach(function(p){ if(S.drop===p.id) mark(p.x, p.y, '#a855f7', p.id); });
+  if(S.goal) mark(S.goal.x, S.goal.y, '#f59e0b', 'G');
+  /* robot */
+  var rx = S.pos.x*cell, ry = S.pos.y*cell;
+  ctx.save();
+  ctx.translate(rx, ry); ctx.rotate(S.yaw);
+  ctx.fillStyle = '#3b82f6';
+  ctx.beginPath();
+  ctx.moveTo(11*dpr, 0); ctx.lineTo(-7*dpr, 7*dpr); ctx.lineTo(-7*dpr, -7*dpr);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#93c5fd'; ctx.lineWidth = 1.4*dpr; ctx.stroke();
+  ctx.restore();
+  ctx.restore();
+  /* scale bar */
+  ctx.fillStyle = 'rgba(255,255,255,.5)';
+  ctx.font = (10*dpr) + 'px sans-serif';
+  ctx.fillText('1 m', 10*dpr, ch - 10*dpr);
+  ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2*dpr;
+  ctx.beginPath(); ctx.moveTo(10*dpr, ch-16*dpr); ctx.lineTo(10*dpr + g.sc*mp.res, ch-16*dpr); ctx.stroke();
+}
+
+/* SECTION: video sim */
+var vidSimOn = false;
+function setupVideo(){
+  var img = $('vidImg'), cv = $('vidSim'), ph = $('vidPh'), tag = $('vidTag'), rec = $('vidRec');
+  function apply(){
+    var url = (cfg.vid || '').trim();
+    if(url){
+      img.style.display = 'block'; cv.style.display = 'none'; ph.style.display = 'none';
+      tag.style.display = 'block'; rec.style.display = 'block';
+      tag.textContent = url.length > 46 ? url.slice(0,44) + '…' : url;
+      img.src = url;
+      setText('vidTagTxt', '实时视频流');
+      img.onerror = function(){
+        img.style.display='none'; rec.style.display='none';
+        if(cfg.simVid){ cv.style.display='block'; vidSimOn=true; setText('vidTagTxt','视频流不可达 · 已切模拟画面'); }
+        else { ph.style.display='flex'; setText('vidTagTxt','视频流不可达'); }
+        log('er', '视频流加载失败：' + url);
+      };
+      img.onload = function(){ vidSimOn=false; log('rx','视频流已连接'); };
+    } else if(cfg.simVid){
+      img.style.display='none'; img.removeAttribute('src'); ph.style.display='none';
+      cv.style.display='block'; tag.style.display='block'; rec.style.display='none';
+      tag.textContent = 'SIM · 模拟第一人称画面';
+      vidSimOn = true;
+      setText('vidTagTxt', '模拟画面（未配置视频流）');
+      var r = $('vidBox').getBoundingClientRect();
+      var dpr = Math.min(window.devicePixelRatio||1, 2);
+      cv.width = Math.max(1, Math.round(r.width*dpr));
+      cv.height = Math.max(1, Math.round(r.height*dpr));
+    } else {
+      img.style.display='none'; img.removeAttribute('src'); cv.style.display='none';
+      ph.style.display='flex'; tag.style.display='none'; rec.style.display='none';
+      vidSimOn = false;
+      setText('vidTagTxt', '未配置视频流');
+    }
+  }
+  apply();
+  window.addEventListener('resize', function(){ if(vidSimOn) apply(); });
+  S.applyVideo = apply;
+}
+function drawVidSim(){
+  if(!vidSimOn) return;
+  var cv = $('vidSim'); if(!cv || !cv.width) return;
+  var ctx = cv.getContext('2d'), W = cv.width, H = cv.height;
+  var t = Date.now()/1000;
+  var grd = ctx.createLinearGradient(0,0,0,H);
+  grd.addColorStop(0,'#0d1b33'); grd.addColorStop(0.55,'#16233c'); grd.addColorStop(1,'#0a1220');
+  ctx.fillStyle = grd; ctx.fillRect(0,0,W,H);
+  /* floor grid with motion parallax */
+  var hz = H*0.46;
+  ctx.strokeStyle = 'rgba(96,165,250,.20)'; ctx.lineWidth = 1;
+  var off = (S.pos.x*30 + t*8) % 40;
+  for(var i=0;i<14;i++){
+    var y = hz + Math.pow(i/13, 2.1)*(H-hz);
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+  }
+  for(var j=-6;j<=6;j++){
+    var x0 = W/2 + j*40 - off;
+    ctx.beginPath(); ctx.moveTo(W/2 + j*6, hz); ctx.lineTo(x0*1.9 - W*0.45, H); ctx.stroke();
+  }
+  /* shelves */
+  ctx.fillStyle = '#1e293b';
+  for(var k=0;k<3;k++){
+    var bx = ((k*170 - S.pos.x*46 - t*6) % (W+220)) - 110;
+    var bw = 92, bh = H*0.30;
+    ctx.fillRect(bx, hz-bh, bw, bh);
+    ctx.fillStyle = '#334155';
+    for(var s=0;s<3;s++) ctx.fillRect(bx+8, hz-bh+10+s*(bh/3), bw-16, bh/3-14);
+    ctx.fillStyle = '#1e293b';
+  }
+  /* target object */
+  var px = W/2 + Math.sin(t*0.5)*W*0.16;
+  ctx.fillStyle = S.grasped ? '#22c55e' : '#f59e0b';
+  ctx.fillRect(px-16, hz-40, 32, 30);
+  ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 2;
+  ctx.strokeRect(px-22, hz-46, 44, 42);
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  ctx.font = (11*Math.min(window.devicePixelRatio||1,2)) + 'px sans-serif';
+  ctx.fillText(S.grasped ? 'GRASPED' : 'TARGET  conf 0.94', px-32, hz-54);
+  /* gripper overlay */
+  var gw = 26 + (100-S.grip)*0.34;
+  ctx.strokeStyle = '#60a5fa'; ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(W/2-gw, H*0.10); ctx.lineTo(W/2-gw, H*0.24);
+  ctx.moveTo(W/2+gw, H*0.10); ctx.lineTo(W/2+gw, H*0.24);
+  ctx.stroke();
+  /* hud */
+  ctx.fillStyle = 'rgba(255,255,255,.55)';
+  ctx.fillText('v ' + S.lin.toFixed(2) + ' m/s   w ' + S.ang.toFixed(2) + ' rad/s', 12, H-14);
+  ctx.fillText('grip ' + S.grip.toFixed(0) + '%   lift ' + S.lift.toFixed(2) + ' m', 12, H-30);
+  ctx.strokeStyle = 'rgba(34,197,94,.7)'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(W/2-40, H/2-30, 80, 60);
+  ctx.beginPath(); ctx.moveTo(W/2-8,H/2); ctx.lineTo(W/2+8,H/2);
+  ctx.moveTo(W/2,H/2-8); ctx.lineTo(W/2,H/2+8); ctx.stroke();
+}
+
+/* SECTION: hud */
+function renderHud(){
+  setText('stBatt', S.batt.toFixed(0) + '%');
+  var bar = $('battBar');
+  if(bar){
+    bar.style.width = Math.max(0, Math.min(100, S.batt)) + '%';
+    bar.style.background = S.batt > 50 ? '#22c55e' : (S.batt > 20 ? '#f59e0b' : '#ef4444');
+  }
+  setText('stPos', S.pos.x.toFixed(2) + ' , ' + S.pos.y.toFixed(2));
+  var deg = S.yaw * 180 / Math.PI; while(deg < 0) deg += 360; while(deg >= 360) deg -= 360;
+  setText('stYaw', deg.toFixed(1) + '°');
+  setText('stGrip', S.grip.toFixed(0) + '%');
+  setText('kvGrip', S.grip.toFixed(1) + ' %　' + (S.grip>60?'闭合':(S.grip>5?'半开':'张开')));
+  setText('kvLift', S.lift.toFixed(2) + ' m');
+  setText('kvForce', S.force.toFixed(1) + ' N' + (S.force > cfgForceMax()*0.92 ? '（接近上限）' : ''));
+  var h = Math.floor(S.up/3600), m = Math.floor(S.up%3600/60), s = Math.floor(S.up%60);
+  setText('kvUp', String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'));
+  setText('kvTask', S.done + ' 完成 / ' + S.fail + ' 失败');
+  if(S.goal){
+    var d = Math.sqrt(Math.pow(S.goal.x-S.pos.x,2)+Math.pow(S.goal.y-S.pos.y,2));
+    setText('kvDist', d.toFixed(2) + ' m');
+    if(S.task && S.task.navOnly){
+      if(d <= 0.3){ cancelNavQuiet(); }
+      else setText('kvNav', '导航中… 剩余 ' + d.toFixed(2) + ' m');
+    }
+  }
+}
+function cancelNavQuiet(){
+  if(S.task && S.task.navOnly){ S.task = null; }
+  S.navState = '已到达'; setText('kvNav', '已到达目标点');
+  dis('btnCancelNav', true);
+  log('rx', '导航到达目标点');
+}
+
+/* SECTION: sim command echo */
+function simHandle(obj){
+  if(!obj) return;
+  if(obj.op === 'publish' && obj.topic === cfg.tStop && obj.msg && obj.msg.data === false){
+    log('rx', '[模拟] 急停已复位');
+  }
+  if(obj.op === 'publish' && obj.topic === cfg.tLift){
+    S.lift = obj.msg.data;
+  }
+}
+
+/* SECTION: settings io */
+var CFG_FIELDS = [
+  ['inWs','ws','text'], ['inVid','vid','text'],
+  ['tVel','tVel','text'], ['tGrip','tGrip','text'], ['tLift','tLift','text'],
+  ['tTask','tTask','text'], ['tGoal','tGoal','text'], ['tStop','tStop','text'],
+  ['tOdom','tOdom','text'], ['tBatt','tBatt','text'], ['tMap','tMap','text'],
+  ['tGripFb','tGripFb','text'],
+  ['pLinMax','linMax','num'], ['pAngMax','angMax','num'],
+  ['pHz','hz','int'], ['pTimeout','timeout','int']
+];
+function cfgToForm(){
+  CFG_FIELDS.forEach(function(f){
+    var e = $(f[0]); if(!e) return;
+    e.value = cfg[f[1]];
+  });
+  $('selAction').value = cfg.actionMode;
+  setTgl('tglSimVid', cfg.simVid); setTgl('tglDeadman', cfg.deadman);
+  setTgl('tglWatchdog', cfg.watchdog);
+  setTgl('tglVision', cfg.vision); setTgl('tglForce', cfg.force);
+  setTgl('tglAvoid', cfg.avoid);
+}
+function formToCfg(){
+  CFG_FIELDS.forEach(function(f){
+    var e = $(f[0]); if(!e) return;
+    if(f[2] === 'num'){ var v = parseFloat(e.value); if(!isNaN(v)) cfg[f[1]] = v; }
+    else if(f[2] === 'int'){ var n = parseInt(e.value,10); if(!isNaN(n)) cfg[f[1]] = n; }
+    else cfg[f[1]] = e.value;
+  });
+  cfg.actionMode = $('selAction').value;
+  cfg.simVid = $('tglSimVid').classList.contains('on');
+  cfg.deadman = $('tglDeadman').classList.contains('on');
+  cfg.watchdog = $('tglWatchdog').classList.contains('on');
+  cfg.vision = $('tglVision').classList.contains('on');
+  cfg.force = $('tglForce').classList.contains('on');
+  cfg.avoid = $('tglAvoid').classList.contains('on');
+}
+function setTgl(id, on){ cls(id, 'on', !!on); }
+function bindTgl(id, key){
+  var e = $(id); if(!e) return;
+  e.addEventListener('click', function(){
+    var on = !e.classList.contains('on');
+    e.classList.toggle('on', on);
+    cfg[key] = on;
+    if(key === 'simVid' && S.applyVideo) S.applyVideo();
+    if(key === 'watchdog') startWatchdog();
+  });
+}
+
+/* SECTION: tabs */
+function setupTabs(){
+  var bar = $('tabBar');
+  bar.addEventListener('click', function(e){
+    var b = e.target.closest('button'); if(!b) return;
+    var name = b.dataset.tab;
+    Array.prototype.forEach.call(bar.children, function(x){ x.classList.toggle('sel', x===b); });
+    ['drive','task','map','set'].forEach(function(p){
+      cls('p-'+p, 'sel', p===name);
+    });
+    if(name === 'map'){ setTimeout(function(){ drawMap(); }, 30); }
+    if(name === 'drive' && S.applyVideo) S.applyVideo();
+    window.scrollTo(0,0);
+  });
+}
+
+/* SECTION: events */
+function bindEvents(){
+  $('btnConn').addEventListener('click', function(){ formToCfg(); saveCfg(); connectWs(); });
+  $('btnDisc').addEventListener('click', disconnectWs);
+  $('btnEstop').addEventListener('click', function(){ S.estop ? releaseEstop() : triggerEstop('手动触发'); });
+  $('btnUnlock').addEventListener('click', releaseEstop);
+
+  $('btnMode').addEventListener('click', function(){
+    S.speedIdx = (S.speedIdx + 1) % SPEED_MODES.length;
+    setText('btnMode', '速度模式：' + SPEED_MODES[S.speedIdx].name);
+    log('rx', '速度模式切换为' + SPEED_MODES[S.speedIdx].name +
+      '（线速度上限 ' + (cfg.linMax*SPEED_MODES[S.speedIdx].mul).toFixed(2) + ' m/s）');
+  });
+  var liftHold = function(dir){
+    var iv = setInterval(function(){
+      S.lift = Math.max(0.05, Math.min(1.2, S.lift + dir*0.02));
+      publish(cfg.tLift, 'std_msgs/Float32', {data: parseFloat(S.lift.toFixed(3))});
+      renderHud();
+    }, 90);
+    return iv;
+  };
+  [['btnLiftU',1],['btnLiftD',-1]].forEach(function(p){
+    var el = $(p[0]), iv = null;
+    var start = function(e){ e.preventDefault(); if(S.estop) return; iv = liftHold(p[1]); };
+    var stop = function(){ if(iv){ clearInterval(iv); iv=null; } };
+    el.addEventListener('pointerdown', start);
+    el.addEventListener('pointerup', stop);
+    el.addEventListener('pointerleave', stop);
+    el.addEventListener('pointercancel', stop);
+  });
+  $('btnGripC').addEventListener('click', function(){ if(!S.estop) setGripper(1.0); });
+  $('btnGripO').addEventListener('click', function(){ if(!S.estop) setGripper(0.0); });
+  $('btnHorn').addEventListener('click', function(){
+    publish(cfg.tTask, 'std_msgs/String', {data: JSON.stringify({action:'horn'})});
+    log('rx', '已发送声光提示');
+  });
+  $('btnStopArm').addEventListener('click', function(){
+    publish(cfg.tTask, 'std_msgs/String', {data: JSON.stringify({action:'arm_stop'})});
+    log('wn', '已发送机械臂停止指令');
+  });
+  $('btnHome').addEventListener('click', function(){
+    if(S.estop) return;
+    setGoal(9.0, 5.0, '返回充电桩');
+    goGoal();
+  });
+
+  $('btnStartTask').addEventListener('click', function(){
+    if(S.estop){ alert('急停状态下无法下发任务，请先解除锁定'); return; }
+    if(S.task){ alert('已有任务在执行'); return; }
+    formToCfg();
+    startTask(currentTaskDef());
+  });
+  $('btnPauseTask').addEventListener('click', function(){ pauseTask(false); });
+  $('btnCancelTask').addEventListener('click', cancelTask);
+  $('btnRetryTask').addEventListener('click', function(){
+    var t = S.task;
+    if(t){ t.phaseT = 0; t.prog = 0; t.retries = 0; log('wn','已重试当前阶段：'+STEPS[t.idx].name); renderTask(); }
+  });
+  $('btnEnqueue').addEventListener('click', function(){ formToCfg(); enqueue(); });
+  $('btnClearQ').addEventListener('click', function(){
+    S.queue = []; renderQueue(); log('wn','队列已清空');
+  });
+  $('btnGo').addEventListener('click', function(){ if(!S.estop) goGoal(); });
+  $('btnCancelNav').addEventListener('click', cancelNav);
+  $('btnGoWp').addEventListener('click', function(){
+    if(S.estop) return;
+    var v = $('selWaypoint').value.split(',');
+    setGoal(parseFloat(v[0]), parseFloat(v[1]), '常用点位');
+    goGoal();
+  });
+  $('btnRescan').addEventListener('click', function(){
+    publish(cfg.tTask, 'std_msgs/String', {data: JSON.stringify({action:'rescan'})});
+    if(S.mode==='sim'){ S.map = genSimMap(); drawMap(); }
+    log('rx', '已下发重扫建图指令');
+  });
+
+  $('btnSaveSet').addEventListener('click', function(){
+    formToCfg(); saveCfg();
+    if(S.applyVideo) S.applyVideo();
+    startVelLoop(); startWatchdog();
+    log('rx', '配置已保存到浏览器本地');
+    alert('配置已保存');
+  });
+  $('btnResetSet').addEventListener('click', function(){
+    cfg = Object.assign({}, DEF_CFG); saveCfg(); cfgToForm();
+    if(S.applyVideo) S.applyVideo();
+    startVelLoop();
+    log('wn', '配置已恢复默认');
+  });
+  $('btnClearLog').addEventListener('click', function(){
+    $('logBox').textContent = ''; S.logLines = []; setText('logCount','0 条');
+  });
+  $('btnExportLog').addEventListener('click', function(){
+    var txt = S.logLines.join('\n');
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(function(){ alert('日志已复制到剪贴板'); },
+        function(){ fallbackCopy(txt); });
+    } else fallbackCopy(txt);
+  });
+  function fallbackCopy(txt){
+    var ta = document.createElement('textarea');
+    ta.value = txt; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); alert('日志已复制'); }
+    catch(e){ alert('复制失败，请手动选择日志文本'); }
+    document.body.removeChild(ta);
+  }
+
+  /* live config edits that affect behaviour */
+  ['inForce'].forEach(function(id){
+    var e=$(id); if(e) e.addEventListener('change', function(){ renderHud(); });
+  });
+  ['pLinMax','pAngMax','pHz','pTimeout'].forEach(function(id){
+    var e=$(id); if(!e) return;
+    e.addEventListener('change', function(){
+      formToCfg(); startVelLoop(); startWatchdog();
+    });
+  });
+  var wsEl = $('inWs'); if(wsEl) wsEl.addEventListener('change', function(){ cfg.ws = wsEl.value; });
+  var vidEl = $('inVid'); if(vidEl) vidEl.addEventListener('change', function(){
+    cfg.vid = vidEl.value; if(S.applyVideo) S.applyVideo();
+  });
+  var selAct = $('selAction'); if(selAct) selAct.addEventListener('change', function(){ cfg.actionMode = selAct.value; });
+  ['tVel','tGrip','tLift','tTask','tGoal','tStop','tOdom','tBatt','tMap','tGripFb'].forEach(function(id){
+    var e=$(id); if(!e) return;
+    e.addEventListener('change', function(){
+      var f = null;
+      CFG_FIELDS.forEach(function(x){ if(x[0]===id) f=x; });
+      if(f) cfg[f[1]] = e.value;
+      if(S.connected) bindSubscriptions();
+    });
+  });
+}
+
+/* SECTION: init */
+function init(){
+  loadCfg();
+  cfgToForm();
+  buildSteps(); buildItems(); buildPointList('pickList', PICK_POINTS, 'pick');
+  buildPointList('dropList', DROP_POINTS, 'drop');
+  buildWaypoints(); renderQueue(); renderHistory();
+  setupTabs(); setupJoystick(); setupMap(); setupVideo(); bindEvents();
+  bindTgl('tglSimVid','simVid'); bindTgl('tglDeadman','deadman');
+  bindTgl('tglWatchdog','watchdog'); bindTgl('tglVision','vision');
+  bindTgl('tglForce','force'); bindTgl('tglAvoid','avoid');
+  S.map = genSimMap();
+  setConnState('off');
+  setText('btnMode', '速度模式：' + SPEED_MODES[S.speedIdx].name);
+  markSteps(-1);
+  setPbar(0);
+  startSim(); startVelLoop();
+  renderHud(); drawMap();
+  log('rx', '控制台已启动 · 模拟模式');
+  log('wn', '提示：填入 rosbridge 地址并点击「连接机器人」即可切换为真实控制');
+  window.addEventListener('beforeunload', function(){
+    if(S.mode === 'ros') zeroVel('页面关闭');
+  });
+  document.addEventListener('visibilitychange', function(){
+    if(document.hidden && cfg.deadman){ S.joyVec=null; S.joyActive=false; resetKnob(); zeroVel('页面切到后台'); }
+  });
+}
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+else init();
+})();
+</script>
+</body>
+</html>

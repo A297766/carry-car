@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智能物品取放机器人控制思路流程图</title>
+<script src="https://image.uc.cn/s/uae/g/3n/mos-production/mermaid.min.js"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f5f7fa; margin: 0; color: #1f2937; }
+  .page-wrapper { max-width: 1200px; margin: 0 auto; padding: 40px 32px; }
+  h1 { font-size: 24px; margin: 0 0 8px; }
+  .subtitle { color: #6b7280; font-size: 14px; margin-bottom: 28px; }
+  .card { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); padding: 24px; margin-bottom: 24px; }
+  .card h2 { font-size: 18px; margin: 0 0 6px; padding-left: 10px; border-left: 4px solid #2563eb; }
+  .card .desc { color: #6b7280; font-size: 13px; line-height: 1.7; margin: 0 0 18px; }
+  .mermaid { display: flex; justify-content: center; overflow-x: auto; }
+  @media (max-width: 768px) {
+    .page-wrapper { padding: 20px 12px; }
+    .card { padding: 16px 12px; }
+    h1 { font-size: 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="page-wrapper">
+  <h1>智能物品取放议题机器人 · 控制思路流程图</h1>
+  <div class="subtitle">配套《智能物品取放议题机器人核心算法与电路设计深度研究报告》第 8 章 · 2026年11月</div>
+
+  <div class="card" data-chart="true">
+    <h2>图 1 · 取放任务主控制流程</h2>
+    <p class="desc">“感知—决策—执行”三段闭环，在检测置信度、逆运动学可行性、夹持力阈值、任务队列四个节点设置校验分支。回退遵循由轻到重的优先级：先调整观测条件，再重采样抓取位姿，最后才放弃本次抓取，使系统在多数异常下可秒级自愈。</p>
+    <pre class="mermaid">
+flowchart TD
+    A["任务下发<br/>API / 语音 / 示教器"] --> B["任务解析与调度<br/>行为树 · L4"]
+    B --> C["SLAM 定位建图<br/>Cartographer · L3"]
+    C --> D{"目标是否在<br/>当前视野内"}
+    D -->|"否"| E["底盘全局规划<br/>Nav2 / A* · L4"]
+    E --> F["局部动态避障<br/>DWB / TEB · L4"]
+    F --> C
+    D -->|"是"| G["目标检测<br/>YOLOv8 · L3"]
+    G --> H{"置信度是否<br/>达到阈值"}
+    H -->|"否"| I["补光 / 换视角<br/>重采样"]
+    I --> G
+    H -->|"是"| J["点云分割<br/>Open3D · L3"]
+    J --> K["6D 位姿估计<br/>PoseCNN + ICP"]
+    K --> L["抓取位姿生成<br/>GraspNet 6-DoF"]
+    L --> M["候选评分排序<br/>碰撞 + 力约束"]
+    M --> N["逆运动学解算<br/>MoveIt2 · L4"]
+    N --> O{"IK 有解且<br/>轨迹无碰撞"}
+    O -->|"否"| P["重采样次优位姿"]
+    P --> M
+    O -->|"是"| Q["轨迹规划<br/>RRT* + 时间参数化"]
+    Q --> R["关节指令下发<br/>ros2_control · L2"]
+    R --> S["伺服三环闭环<br/>电流-速度-位置"]
+    S --> T["末端位置控制<br/>逼近目标开度"]
+    T --> U{"力矩传感器<br/>检测到接触"}
+    U -->|"否"| T
+    U -->|"是"| V["切换力矩控制<br/>夹持力限幅"]
+    V --> W{"夹持力是否<br/>在阈值内"}
+    W -->|"否"| X["松开夹爪<br/>返回抓取重规划"]
+    X --> L
+    W -->|"是"| Y["提升与搬运<br/>底盘 + 机械臂复合"]
+    Y --> Z["放置点定位下放"]
+    Z --> AA["释放物体<br/>末端复位"]
+    AA --> AB{"任务队列<br/>是否完成"}
+    AB -->|"否"| B
+    AB -->|"是"| AC["状态回传<br/>MQTT · L5"]
+    </pre>
+  </div>
+
+  <div class="card" data-chart="true">
+    <h2>图 2 · 五层架构控制闭环</h2>
+    <p class="desc">实线为主控制流，虚线为反馈与保护通路。算力密集任务集中在 L3/L4（Jetson Orin），实时性敏感任务下沉到 L2（MCU/RTOS），二者通过 DDS 与 EtherCAT 解耦——即使视觉层因光照波动抖动，底层电流环仍保持 62.5μs 级稳定响应。</p>
+    <pre class="mermaid">
+flowchart TB
+    subgraph SL5["L5 交互与云端层"]
+        direction LR
+        A1["任务接收 MQTT"]
+        A2["VLM / VLA 指令"]
+        A3["监控 · OTA"]
+    end
+    subgraph SL4["L4 决策与规划层 · Jetson Orin / ROS2"]
+        direction LR
+        B1["行为树调度"]
+        B2["Nav2 导航规划"]
+        B3["MoveIt2 运动规划"]
+        B4["抓取策略决策"]
+    end
+    subgraph SL3["L3 感知与定位层 · GPU 推理"]
+        direction LR
+        C1["YOLOv8 检测"]
+        C2["GraspNet 位姿"]
+        C3["SLAM 建图定位"]
+        C4["力与状态估计"]
+    end
+    subgraph SL2["L2 驱动与 OS 层 · MCU / RTOS"]
+        direction LR
+        D1["ros2_control"]
+        D2["FOC 电流环<br/>0.76μs"]
+        D3["CAN / EtherCAT"]
+        D4["四级硬件保护"]
+    end
+    subgraph SL1["L1 硬件层"]
+        direction LR
+        E1["RGB-D + 雷达 + IMU"]
+        E2["6-DOF 关节电机"]
+        E3["末端电磁阀"]
+        E4["力矩传感器"]
+    end
+    A1 --> B1
+    A2 --> B4
+    B1 --> B2
+    B2 --> B3
+    B3 --> B4
+    C1 --> B4
+    C2 --> B3
+    C3 --> B2
+    C4 --> B3
+    B4 --> D1
+    D1 --> D2
+    D2 --> D3
+    D3 --> E2
+    D3 --> E3
+    E1 --> C1
+    E1 --> C3
+    E2 --> D2
+    E4 --> C4
+    D4 -.->|"过流过压脱扣 500ns"| E2
+    E4 -.->|"力反馈毫秒重规划"| B4
+    D1 -.->|"状态上报"| A3
+    </pre>
+  </div>
+
+  <div class="card" data-chart="true">
+    <h2>图 3 · 伺服三环级联实时控制</h2>
+    <p class="desc">L2 层关节伺服采用位置环—速度环—电流环三环级联，周期依次缩短（1ms / 100μs 级 / 0.76μs），内环为外环提供快速响应基础。过流保护走纯硬件通路，不经过软件判断，保证 MOSFET 在堵转或短路时于微秒级被关断。</p>
+    <pre class="mermaid">
+flowchart LR
+    R["位置指令 θ_ref<br/>MoveIt2 轨迹"] --> EP(("Σ"))
+    FB1["位置反馈 θ<br/>AS5600 / QEI"] --> EP
+    EP --> PP["位置环 P<br/>周期 1ms"]
+    PP --> RS["速度指令 ω_ref"]
+    RS --> ES(("Σ"))
+    FB2["速度反馈 ω<br/>编码器观测器"] --> ES
+    ES --> SP["速度环 PI<br/>抗积分饱和"]
+    SP --> IR["电流指令 I_ref"]
+    IR --> EI(("Σ"))
+    FB3["电流反馈 I<br/>0.01Ω + INA128"] --> EI
+    EI --> CP["电流环 PI<br/>0.76μs"]
+    CP --> SVP["SVPWM 调制<br/>查表 sin / cos"]
+    SVP --> GT["栅极驱动 IR2104<br/>自举电容 10μF"]
+    GT --> MOS["三相全桥 IRF3205<br/>RC 吸收 100Ω/10nF"]
+    MOS --> M["BLDC / PMSM<br/>关节电机"]
+    M --> FB1
+    M --> FB2
+    M --> FB3
+    FB3 --> PRT{"硬件比较器<br/>电流超阈值"}
+    PRT -->|"是"| RST["RS 触发器封锁<br/>PWM 500ns 关断"]
+    RST --> GT
+    PRT -->|"否"| CP
+    </pre>
+  </div>
+  <div class="card" data-chart="true">
+    <h2>图 4 · 末端执行器控制状态机</h2>
+    <p class="desc">采用“接触前位置控制、接触后力矩控制”的双模切换策略，这是抓取易碎品与软体物不破损的核心机制。状态机含滑落增量夹紧与力超限松开重试两条异常恢复路径，对应实操验证中软体物体抓取成功率偏低的改进方向。</p>
+    <pre class="mermaid">
+stateDiagram-v2
+    [*] --> 待机: 上电自检通过
+    待机 --> 预开度定位: 收到抓取指令
+    预开度定位 --> 位置控制逼近: 开度 = 尺寸 + 余量
+    位置控制逼近 --> 接触检测: 指尖运动
+    接触检测 --> 位置控制逼近: 未接触 继续逼近
+    接触检测 --> 力矩控制切换: 力矩突变超阈值
+    力矩控制切换 --> 柔顺夹持: 电流限幅 = 设定力
+    柔顺夹持 --> 夹持力校验: 保压 50ms
+    夹持力校验 --> 提升搬运: 力在阈值内
+    夹持力校验 --> 松开重试: 力超限 物体易碎
+    夹持力校验 --> 滑落检测: 力不足 疑似打滑
+    滑落检测 --> 力矩控制切换: 增量夹紧
+    松开重试 --> 待机: 上报失败 L4 重规划
+    提升搬运 --> 放置释放: 到达放置点
+    放置释放 --> 末端复位: 排气或电机反转
+    末端复位 --> 待机: 单次任务完成
+    </pre>
+  </div>
+
+  <div class="card" data-chart="true">
+    <h2>图 5 · 跨层通信时序</h2>
+    <p class="desc">一次完整取放作业在各层之间的消息交互顺序。FollowJointTrajectory 调用后进入 62.5μs 实时循环，该循环由 L2 独立运行、不再依赖上层指令，即使 L4 规划节点短暂阻塞也不会中断关节伺服。</p>
+    <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant U as L5 云端 / APP
+    participant BT as L4 行为树
+    participant NAV as L4 Nav2
+    participant PER as L3 感知
+    participant MI as L4 MoveIt2
+    participant RC as L2 ros2_control
+    participant HW as L1 电机与末端
+    U->>BT: 下发取放任务与点位
+    BT->>NAV: 导航至取货区
+    NAV-->>BT: 到达 误差 ±1.2cm
+    BT->>PER: 请求检测与位姿
+    PER-->>BT: 类别 + 6D 位姿 + 点云
+    BT->>MI: 请求抓取轨迹
+    MI->>MI: IK + 碰撞检测 + RRT*
+    MI-->>BT: 时间参数化轨迹
+    BT->>RC: FollowJointTrajectory
+    loop 62.5μs 实时周期
+        RC->>HW: FOC 电流速度位置指令
+        HW-->>RC: 编码器与力矩反馈
+    end
+    HW-->>BT: 接触触发 切换力控
+    BT->>RC: 提升 搬运 下放
+    RC->>HW: 电磁阀 DO0/DO1 释放
+    HW-->>U: 完成状态经 MQTT 回传
+    </pre>
+  </div>
+
+  <div class="card" data-chart="true">
+    <h2>图 6 · PLC I/O 与末端电气控制</h2>
+    <p class="desc">接入既有产线时，末端气动回路由 PLC 输出卡以数字 I/O 驱动：DO0 控制夹紧/充气，DO1 控制松开/排气，控制器只需输出高低电平即可完成取放。SMC 一体化气爪仅需 1 根供气管与 1 个 8 针 M8 插头，构成模块化末端快速更换的电气基础。</p>
+    <pre class="mermaid">
+flowchart TD
+    HMI["MCGS 触摸屏<br/>手动 / 自动模式"] --> PLC["PLC 主控制器"]
+    SEN["传感器组<br/>到位 / 真空 / 光电"] --> PLC
+    RC["机器人控制器 L2"] -->|"CAN / EtherCAT"| PLC
+    PLC -->|"状态与故障码"| RC
+    PLC --> OUT["输出卡 DO0 / DO1"]
+    OUT -->|"DO0 = 1"| V1["电磁阀 1 · 24V DC<br/>夹紧 / 充气"]
+    OUT -->|"DO1 = 1"| V2["电磁阀 2 · 24V DC<br/>松开 / 排气"]
+    V1 --> G["SMC JMHZ2-16D<br/>重复精度 ±0.01mm"]
+    V2 --> G
+    G --> FBK["磁性开关到位反馈"]
+    FBK --> SEN
+    V1 -.->|"1 根气管 + M8 插头"| ARM["机械臂末端安装面"]
+    V2 -.->|"1 根气管 + M8 插头"| ARM
+    ARM --> RC
+    PLC --> PWR["变频器 / 继电器<br/>输送线"]
+    </pre>
+  </div>
+</div>
+<script>
+  mermaid.initialize({ startOnLoad: false, theme: 'default', flowchart: { curve: 'basis', useMaxWidth: false } });
+  mermaid.run({ nodes: document.querySelectorAll('.mermaid') });
+</script>
+</body>
+</html>
